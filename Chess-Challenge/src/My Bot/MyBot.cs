@@ -1,12 +1,22 @@
 ﻿using System;
+using System.Linq;
 using System.Collections.Generic;
 using ChessChallenge.API;
+
+// TODO:
+// _________________________________________________________
+// move ordering
+// early stopping (iterative deepening + clock)
+// quiescence search
+// fix a-b pruning interaction with transposition table
+// tests & a way to measure performance
+// condense code to < 1024 tokens
 
 public class MyBot : IChessBot
 {
     Dictionary<ulong, int> transpositionTable = new();
     int[] pieceValues = {100, 320, 330, 500, 900, 20000};
-    // values for WHITE player. for BLACK player, index needs to be point mirrored or matrix 180 rotated
+    // values for WHITE player. for BLACK player, index needs to be mirrored or matrix 180 rotated
     static int[] pawnTable = { 0, 0, 0, 0, 0, 0, 0, 0,
                         5, 10, 10, -20, -20, 10, 10, 5,
                         5, -5, -10, 0, 0, -10, -5, 5,
@@ -74,7 +84,26 @@ public class MyBot : IChessBot
         int depth = 4;
         int color = board.IsWhiteToMove ? 1 : -1;
 
-        foreach (Move move in board.GetLegalMoves())
+        // Move[] moves = board.GetLegalMoves();
+        // Array.Sort(moves, SortByThreats);
+        // foreach (Move move in moves)
+        Move[] captureMoves = board.GetLegalMoves(true);
+        foreach (Move captureMove in captureMoves)
+        {
+            board.MakeMove(captureMove);
+            int score = -Negamax(board, depth - 1, int.MinValue + 1, int.MaxValue - 1, -color);
+            board.UndoMove(captureMove);
+
+            // Console.WriteLine($"score: {score}\n move: {move}");
+
+            if (score > bestScore)
+            {
+                bestScore = score;
+                bestMove = captureMove;
+            }
+        }
+
+        foreach (Move move in board.GetLegalMoves()) if (!captureMoves.Contains(move))
         {
             board.MakeMove(move);
             int score = -Negamax(board, depth - 1, int.MinValue + 1, int.MaxValue - 1, -color);
@@ -101,11 +130,11 @@ public class MyBot : IChessBot
         foreach (Move move in board.GetLegalMoves())
         {
             board.MakeMove(move);
-            int eval = -Negamax(board, depth - 1, -beta, -alpha, -color);
+            int score = -Negamax(board, depth - 1, -beta, -alpha, -color);
             board.UndoMove(move);
 
-            maxEval = Math.Max(maxEval, eval);
-            alpha = Math.Max(alpha, eval);
+            maxEval = Math.Max(maxEval, score);
+            alpha = Math.Max(alpha, score);
             if (alpha >= beta)
                 break; // Beta cutoff
         }
@@ -155,3 +184,8 @@ public class MyBot : IChessBot
         return score;
     }
 }
+//     public int SortByThreats(Move move1, Move move2)
+//     {
+//         return move2.IsCapture - move1.Threats;
+//     }
+// }
