@@ -1,15 +1,15 @@
 ﻿using System;
-using System.Linq;
+// using System.Linq;
 using System.Collections.Generic;
 using ChessChallenge.API;
 
 // TODO:
-// _________________________________________________________
-// move ordering
-// early stopping (iterative deepening + clock)
+// _________________________________________________________________
 // quiescence search
+// early stopping (iterative deepening + clock) & principal variation search
 // fix a-b pruning interaction with transposition table
 // tests & a way to measure performance
+// turn into NegaScout by using a-b window of size 1
 // condense code to < 1024 tokens
 
 public class MyBot : IChessBot
@@ -87,23 +87,24 @@ public class MyBot : IChessBot
         // Move[] moves = board.GetLegalMoves();
         // Array.Sort(moves, SortByThreats);
         // foreach (Move move in moves)
-        Move[] captureMoves = board.GetLegalMoves(true);
-        foreach (Move captureMove in captureMoves)
-        {
-            board.MakeMove(captureMove);
-            int score = -Negamax(board, depth - 1, int.MinValue + 1, int.MaxValue - 1, -color);
-            board.UndoMove(captureMove);
+        // Move[] captureMoves = board.GetLegalMoves(true);
+        // foreach (Move captureMove in captureMoves)
+        // {
+        //     board.MakeMove(captureMove);
+        //     int score = -Negamax(board, depth - 1, int.MinValue + 1, int.MaxValue - 1, -color);
+        //     board.UndoMove(captureMove);
 
-            // Console.WriteLine($"score: {score}\n move: {move}");
+        //     // Console.WriteLine($"score: {score}\n move: {move}");
 
-            if (score > bestScore)
-            {
-                bestScore = score;
-                bestMove = captureMove;
-            }
-        }
-
-        foreach (Move move in board.GetLegalMoves()) if (!captureMoves.Contains(move))
+        //     if (score > bestScore)
+        //     {
+        //         bestScore = score;
+        //         bestMove = captureMove;
+        //     }
+        // }
+        Move[] moves = board.GetLegalMoves();
+        moves = OrderMoveByMVVLVA(moves);
+        foreach (Move move in moves)
         {
             board.MakeMove(move);
             int score = -Negamax(board, depth - 1, int.MinValue + 1, int.MaxValue - 1, -color);
@@ -121,13 +122,47 @@ public class MyBot : IChessBot
         return bestMove;
     }
 
-    public int Negamax(Board board, int depth, int alpha, int beta, int color)
+    // order move by MVVLVA value
+    int GetMVVLVAValue(Move move) {
+        if (move.IsCapture) {
+            return pieceValues[(int)move.CapturePieceType - 1] - pieceValues[(int)move.MovePieceType - 1];
+        }
+        return -pieceValues[(int)move.MovePieceType - 1];
+    }
+
+    // Move[] OrderMoveByMVVLVA(Move[] moves) {
+    //     Array.Sort(moves, (move1, move2) => {
+    //         int mvvLvaValue1 = GetMVVLVAValue(move1);
+    //         int mvvLvaValue2 = GetMVVLVAValue(move2);
+    //         return mvvLvaValue2.CompareTo(mvvLvaValue1);
+    //     });
+    //     return moves;
+    // }
+
+    int CompareMovesByMVVLVA(Move move1, Move move2)
+    {
+        int value1 = GetMVVLVAValue(move1);
+        int value2 = GetMVVLVAValue(move2);
+
+        return value2.CompareTo(value1);
+    }
+
+    Move[] OrderMoveByMVVLVA(Move[] moves)
+    {
+        Array.Sort(moves, CompareMovesByMVVLVA);
+
+        return moves;
+    }
+
+    int Negamax(Board board, int depth, int alpha, int beta, int color)
     {
         if (depth == 0 || board.IsInCheckmate() || board.IsDraw())
             return color * EvaluateBoard(board, color);
 
         int maxEval = int.MinValue;
-        foreach (Move move in board.GetLegalMoves())
+        Move[] moves = board.GetLegalMoves();
+        moves = OrderMoveByMVVLVA(moves);
+        foreach (Move move in moves)
         {
             board.MakeMove(move);
             int score = -Negamax(board, depth - 1, -beta, -alpha, -color);
@@ -142,7 +177,7 @@ public class MyBot : IChessBot
         return maxEval;
     }
 
-    public int EvaluateBoard(Board board, int color)
+    int EvaluateBoard(Board board, int color)
     {
         // doesn't have to take into account color, should always be from white's perspective
         ulong boardHash = board.ZobristKey;
