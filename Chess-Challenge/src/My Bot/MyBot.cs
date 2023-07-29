@@ -16,6 +16,18 @@ public class MyBot : IChessBot
 {
     Dictionary<ulong, int> transpositionTable = new();
     int[] pieceValues = {100, 320, 330, 500, 900, 20000};
+
+    // ulong[,] piecePositionValueTable =
+    // {
+    // {0x0000000000000000, 0x050A0AECEC0A0A05, 0x05FBF600F6FB0505, 0x0000001414000000, 0x05050A19190A0505, 0x0A0A141E1E140A0A, 0x3232323232323232, 0x0000000000000000},
+    // {0xCEC8E2E2E2E2C8CE, 0xC8D800050500D8C8, 0xE2050A0F0F0A05E2, 0xE2000F1414140FE2, 0xE2051514141505E2, 0xE20005100F1005E2, 0xC8D80000FF00D8C8, 0xCEC8E2E2E2E2C8CE},
+    // {0xECEAEAEAEAEAEAEA, 0xEAF500000000F5EA, 0xEAF5F5F5F5F5F5EA, 0xEA00F5F5F5F500EA, 0xF50505F5F50505F5, 0xF50005F5F50500F5, 0xF50000FFFFFF00F5, 0xECEAEAEAEAEAEAEA},
+    // {0x0000000505000000, 0xFB000000000000FB, 0xFB000000000000FB, 0xFB000000000000FB, 0xFB000000000000FB, 0xFB000000000000FB, 0x050AFAFAFAFAFA05, 0x0000050505000000},
+    // {0xECEAEAA5A5AAEAEA, 0xEAF500050505F5EA, 0xF50005050505F5FB, 0xFB00555555FFFBFB, 0xFBFF55555500FBFB, 0xFA005555550005FA, 0xFA00FFFFFFFF00FA, 0xECEAA5A5A5A5EAEA},
+    // {0x141E0A00000A1E14, 0x1414000000001414, 0xF6E6E6E6E6E6E6F6, 0xECE2E2D8D8E2E2EC, 0xD8D8D8C8C8D8D8D8, 0xD8D8D8C8C8D8D8D8, 0xD8D8D8C8C8D8D8D8, 0x1414000014141414}
+    // };
+    int GetPositionScore(int pieceType, int index) => (sbyte)((piecePositionValueTable[pieceType, index / 8] >> (8 * (index % 8))) & 0xFF);
+
     // values for WHITE player. for BLACK player, index needs to be mirrored or matrix 180 rotated
     static int[] pawnTable = { 0, 0, 0, 0, 0, 0, 0, 0,
                         5, 10, 10, -20, -20, 10, 10, 5,
@@ -102,6 +114,10 @@ public class MyBot : IChessBot
         //         bestMove = captureMove;
         //     }
         // }
+
+        Console.WriteLine($"TEST pawn: {GetPositionScore(0, 12)}\n");
+        Console.WriteLine($"TEST knight: {GetPositionScore(1, 0)}\n");
+
         Move[] moves = board.GetLegalMoves();
         moves = OrderMoveByMVVLVA(moves);
         foreach (Move move in moves)
