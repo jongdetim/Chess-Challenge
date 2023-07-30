@@ -7,20 +7,17 @@ using ChessChallenge.API;
 // _________________________________________________________________
 // principal variation search & better move ordering
 // early stopping (iterative deepening + clock)
-// separate early game / midgame based piecePositionValueTables
-// better pawn evaluation
 // fix a-b pruning interaction with transposition table
 // quiescence search
 // tests & a way to measure performance
 // turn into NegaScout by using a-b window of size 1
 // condense code to < 1024 tokens
 
-public class MyBot : IChessBot
+public class MyBotBackup : IChessBot
 {
     Dictionary<ulong, int> transpositionTable = new();
     int[] pieceValues = {100, 320, 330, 500, 900, 20000};
 
-    // every 32 bits is a row. every 64-bit int here is 2 rows
     ulong[] piecePositionValueTable = {
         0x00000000050A0AEC, 0x05FBF60000000014, 0x05050A190A0A141E, 0x3232323200000000, // pawns
         0xCED8E2E2D8EC0005, 0xE2050A0FE2000F14, 0xE2050F14E2000A0F, 0xD8EC0000CED8E2E2, // knights
@@ -100,8 +97,13 @@ public class MyBot : IChessBot
     //     return moves;
     // }
 
-    int CompareMovesByMVVLVA(Move move1, Move move2) =>
-        GetMVVLVAValue(move2).CompareTo(GetMVVLVAValue(move1));
+    int CompareMovesByMVVLVA(Move move1, Move move2)
+    {
+        int value1 = GetMVVLVAValue(move1);
+        int value2 = GetMVVLVAValue(move2);
+
+        return value2.CompareTo(value1);
+    }
 
     Move[] OrderMoveByMVVLVA(Move[] moves)
     {
@@ -135,6 +137,7 @@ public class MyBot : IChessBot
 
     int EvaluateBoard(Board board, int color)
     {
+        // doesn't have to take into account color, should always be from white's perspective
         ulong boardHash = board.ZobristKey;
         if (transpositionTable.ContainsKey(boardHash))
             return transpositionTable[boardHash];
