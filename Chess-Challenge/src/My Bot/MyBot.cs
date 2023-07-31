@@ -6,6 +6,12 @@ using ChessChallenge.API;
 // TODO:
 // _________________________________________________________________
 // principal variation search & better move ordering
+<<<<<<< Updated upstream
+=======
+// early stopping (iterative deepening + clock)
+// separate early game / midgame based piecePositionValueTables and pieceValues
+// better pawn evaluation
+>>>>>>> Stashed changes
 // fix a-b pruning interaction with transposition table
 // early stopping (iterative deepening + clock)
 // quiescence search
@@ -75,29 +81,93 @@ public class MyBot : IChessBot
         return -pieceValues[(int)move.MovePieceType - 1];
     }
 
-    // Move[] OrderMoveByMVVLVA(Move[] moves) {
-    //     Array.Sort(moves, (move1, move2) => {
-    //         int mvvLvaValue1 = GetMVVLVAValue(move1);
-    //         int mvvLvaValue2 = GetMVVLVAValue(move2);
-    //         return mvvLvaValue2.CompareTo(mvvLvaValue1);
-    //     });
-    //     return moves;
-    // }
-
     int CompareMovesByMVVLVA(Move move1, Move move2) =>
         GetMVVLVAValue(move2).CompareTo(GetMVVLVAValue(move1));
 
     Move[] OrderMoveByMVVLVA(Move[] moves)
     {
         Array.Sort(moves, CompareMovesByMVVLVA);
-
         return moves;
     }
+
+int Negamax(Board board, int depth, int alpha, int beta, int color)
+{
+    ulong zobristKey = board.ZobristKey;
+    if (depth == 0 || board.IsInCheckmate() || board.IsDraw())
+    {
+        int score = EvaluateBoard(board, color) * color;
+        TTEntryType entryType = TTEntryType.ExactValue;
+
+        if (score <= alpha)
+            entryType = TTEntryType.UpperBound;
+        else if (score >= beta)
+            entryType = TTEntryType.LowerBound;
+
+        transpositionTable[zobristKey] = (score, entryType, depth);
+        return score;
+    }
+
+    if (transpositionTable.TryGetValue(zobristKey, out var entry) && entry.depth >= depth)
+    {
+        if (entry.entryType == TTEntryType.ExactValue || entry.entryType == TTEntryType.LowerBound)
+        {
+            alpha = Math.Max(alpha, entry.score);
+            if (alpha >= beta)
+                return entry.score;
+        }
+        else if (entry.entryType == TTEntryType.UpperBound)
+        {
+            beta = Math.Min(beta, entry.score);
+            if (alpha >= beta)
+                return entry.score;
+        }
+    }
+
+    int maxEval = int.MinValue;
+    Move[] moves = board.GetLegalMoves();
+    moves = OrderMoveByMVVLVA(moves);
+
+    foreach (Move move in moves)
+    {
+        board.MakeMove(move);
+        int score = -Negamax(board, depth - 1, -beta, -alpha, -color);
+        board.UndoMove(move);
+
+        maxEval = Math.Max(maxEval, score);
+        alpha = Math.Max(alpha, score);
+
+        if (alpha >= beta)
+        {
+            // Beta cutoff
+            TTEntryType entryType = TTEntryType.LowerBound;
+            if (maxEval <= alpha)
+                entryType = TTEntryType.UpperBound;
+            transpositionTable[zobristKey] = (maxEval, entryType, depth);
+            break;
+        }
+    }
+
+    TTEntryType finalEntryType = TTEntryType.ExactValue;
+    if (maxEval <= alpha)
+        finalEntryType = TTEntryType.UpperBound;
+    else if (maxEval >= beta)
+        finalEntryType = TTEntryType.LowerBound;
+
+    transpositionTable[zobristKey] = (maxEval, finalEntryType, depth);
+    return maxEval;
+}
+
 
     int Negamax(Board board, int depth, int alpha, int beta, int color)
     {
         if (depth == 0 || board.IsInCheckmate() || board.IsDraw())
-            return color * EvaluateBoard(board, color);
+        {
+            int score = EvaluateBoard(board, color) * color;
+            // this means that the stored move has a score from the perspective of the player who is about to move
+            // should we instead always store the score from the perspective of white?
+            transpositionTable[board.ZobristKey] = score;
+            return score;
+        }
 
         int maxEval = int.MinValue;
         Move[] moves = board.GetLegalMoves();
@@ -120,20 +190,21 @@ public class MyBot : IChessBot
     int EvaluateBoard(Board board, int color)
     {
         ulong boardHash = board.ZobristKey;
+
         if (transpositionTable.ContainsKey(boardHash))
             return transpositionTable[boardHash];
 
         if (board.IsInCheckmate())
+<<<<<<< Updated upstream
         {
             // should these be multiplied by color, or always white's perspective?
             transpositionTable[boardHash] = (int.MinValue + 1) * color;
+=======
+>>>>>>> Stashed changes
             return (int.MinValue + 1) * color;
-        }
+
         if (board.IsDraw())
-        {
-            transpositionTable[boardHash] = 0;
             return 0;
-        }
 
         // count piece values
         int score = 0;
@@ -154,13 +225,6 @@ public class MyBot : IChessBot
         if (board.IsInCheck())
             score += 50 * color;
 
-        // should score be reversed here as well?
-        transpositionTable[boardHash] = score;
         return score;
     }
 }
-//     public int SortByThreats(Move move1, Move move2)
-//     {
-//         return move2.IsCapture - move1.Threats;
-//     }
-// }
