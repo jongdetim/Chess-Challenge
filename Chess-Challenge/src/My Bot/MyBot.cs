@@ -6,11 +6,11 @@ using ChessChallenge.API;
 // TODO:
 // _________________________________________________________________
 // principal variation search & better move ordering
-// early stopping (iterative deepening + clock)
-// separate early game / midgame based piecePositionValueTables
-// better pawn evaluation
 // fix a-b pruning interaction with transposition table
+// early stopping (iterative deepening + clock)
 // quiescence search
+// better pawn evaluation
+// separate early game / midgame based piecePositionValueTables
 // tests & a way to measure performance
 // turn into NegaScout by using a-b window of size 1
 // condense code to < 1024 tokens
@@ -18,10 +18,10 @@ using ChessChallenge.API;
 public class MyBot : IChessBot
 {
     Dictionary<ulong, int> transpositionTable = new();
-    int[] pieceValues = {100, 320, 330, 500, 900, 20000};
+    static int[] pieceValues = {100, 320, 330, 500, 900, 20000};
 
     // every 32 bits is a row. every 64-bit int here is 2 rows
-    ulong[] piecePositionValueTable = {
+    static ulong[] piecePositionValueTable = {
         0x00000000050A0AEC, 0x05FBF60000000014, 0x05050A190A0A141E, 0x3232323200000000, // pawns
         0xCED8E2E2D8EC0005, 0xE2050A0FE2000F14, 0xE2050F14E2000A0F, 0xD8EC0000CED8E2E2, // knights
         0xECF6F6F6F6050000, 0xF60A0A0AF6000A0A, 0xF605050AF600050A, 0xF6000000ECF6F6F6, // bishops
@@ -40,28 +40,12 @@ public class MyBot : IChessBot
         int depth = 4;
         int color = board.IsWhiteToMove ? 1 : -1;
 
-        // Move[] moves = board.GetLegalMoves();
-        // Array.Sort(moves, SortByThreats);
-        // foreach (Move move in moves)
-        // Move[] captureMoves = board.GetLegalMoves(true);
-        // foreach (Move captureMove in captureMoves)
-        // {
-        //     board.MakeMove(captureMove);
-        //     int score = -Negamax(board, depth - 1, int.MinValue + 1, int.MaxValue - 1, -color);
-        //     board.UndoMove(captureMove);
+        Console.WriteLine($"TEST pawn: {GetPositionScore(0, 35)}. (should be: 25)\n"); // #DEBUG
+        Console.WriteLine($"TEST king: {GetPositionScore(5, 63)}. (should be: -30)\n"); // #DEBUG
+        Console.WriteLine($"TEST queen: {GetPositionScore(4, 58)}. (should be: -10)\n"); // #DEBUG
 
-        //     // Console.WriteLine($"score: {score}\n move: {move}");
-
-        //     if (score > bestScore)
-        //     {
-        //         bestScore = score;
-        //         bestMove = captureMove;
-        //     }
-        // }
-
-        Console.WriteLine($"TEST pawn: {GetPositionScore(0, 35)}. (should be: 25)\n");
-        Console.WriteLine($"TEST king: {GetPositionScore(5, 63)}. (should be: -30)\n");
-        Console.WriteLine($"TEST queen: {GetPositionScore(4, 58)}. (should be: -10)\n");
+        // Clear the transposition table at the beginning of each iteration (have to test if that's better than keeping it between searches)
+        // transpositionTable.Clear();
 
         Move[] moves = board.GetLegalMoves();
         moves = OrderMoveByMVVLVA(moves);
@@ -79,7 +63,7 @@ public class MyBot : IChessBot
                 bestMove = move;
             }
         }
-        Console.WriteLine($"Best score: {bestScore}\n Best move: {bestMove}");
+        Console.WriteLine($"Best score: {bestScore}\n Best move: {bestMove}"); // #DEBUG
         return bestMove;
     }
 
@@ -141,6 +125,7 @@ public class MyBot : IChessBot
 
         if (board.IsInCheckmate())
         {
+            // should these be multiplied by color, or always white's perspective?
             transpositionTable[boardHash] = (int.MinValue + 1) * color;
             return (int.MinValue + 1) * color;
         }
