@@ -1,18 +1,13 @@
 ﻿using System;
-// using System.Linq;
+using System.Linq;
 using System.Collections.Generic;
 using ChessChallenge.API;
 
 // TODO:
 // _________________________________________________________________
-// principal variation search & better move ordering
-<<<<<<< Updated upstream
-=======
-// early stopping (iterative deepening + clock)
-// separate early game / midgame based piecePositionValueTables and pieceValues
-// better pawn evaluation
->>>>>>> Stashed changes
 // fix a-b pruning interaction with transposition table
+// principal variation search & better move ordering
+
 // early stopping (iterative deepening + clock)
 // quiescence search
 // better pawn evaluation
@@ -20,10 +15,18 @@ using ChessChallenge.API;
 // tests & a way to measure performance
 // turn into NegaScout by using a-b window of size 1
 // condense code to < 1024 tokens
+    // embed functions, use ternary operators, replace math.max and valuemax etc. with constant values
+
+enum TTEntryType
+{
+    UpperBound,
+    LowerBound,
+    ExactValue
+}
 
 public class MyBot : IChessBot
 {
-    Dictionary<ulong, int> transpositionTable = new();
+    Dictionary<ulong, (int score, TTEntryType entryType, int depth)> transpositionTable = new();
     static int[] pieceValues = {100, 320, 330, 500, 900, 20000};
 
     // every 32 bits is a row. every 64-bit int here is 2 rows
@@ -46,15 +49,16 @@ public class MyBot : IChessBot
         int depth = 4;
         int color = board.IsWhiteToMove ? 1 : -1;
 
-        Console.WriteLine($"TEST pawn: {GetPositionScore(0, 35)}. (should be: 25)\n"); // #DEBUG
-        Console.WriteLine($"TEST king: {GetPositionScore(5, 63)}. (should be: -30)\n"); // #DEBUG
-        Console.WriteLine($"TEST queen: {GetPositionScore(4, 58)}. (should be: -10)\n"); // #DEBUG
+        // Console.WriteLine($"TEST pawn: {GetPositionScore(0, 35)}. (should be: 25)\n"); // #DEBUG
+        // Console.WriteLine($"TEST king: {GetPositionScore(5, 63)}. (should be: -30)\n"); // #DEBUG
+        // Console.WriteLine($"TEST queen: {GetPositionScore(4, 58)}. (should be: -10)\n"); // #DEBUG
 
-        // Clear the transposition table at the beginning of each iteration (have to test if that's better than keeping it between searches)
+        // (dont) Clear the transposition table at the beginning of each iteration (have to test if that's better than keeping it between searches)
         // transpositionTable.Clear();
 
+        // maybe we should call negamax from root node & return the move along with the score
         Move[] moves = board.GetLegalMoves();
-        moves = OrderMoveByMVVLVA(moves);
+        moves = SortMoves(board, moves);
         foreach (Move move in moves)
         {
             board.MakeMove(move);
@@ -73,105 +77,81 @@ public class MyBot : IChessBot
         return bestMove;
     }
 
-    // order move by MVVLVA value
-    int GetMVVLVAValue(Move move) {
-        if (move.IsCapture) {
-            return pieceValues[(int)move.CapturePieceType - 1] - pieceValues[(int)move.MovePieceType - 1];
-        }
-        return -pieceValues[(int)move.MovePieceType - 1];
-    }
-
-    int CompareMovesByMVVLVA(Move move1, Move move2) =>
-        GetMVVLVAValue(move2).CompareTo(GetMVVLVAValue(move1));
-
-    Move[] OrderMoveByMVVLVA(Move[] moves)
+    Move[] SortMoves(Board board, Move[] moves)
     {
-        Array.Sort(moves, CompareMovesByMVVLVA);
-        return moves;
-    }
+        Dictionary<Move, int> moveScores = new();
+        // t-table first, then checkmate, then checks, then captures
+            // do we really want to search checks before captures?
 
-int Negamax(Board board, int depth, int alpha, int beta, int color)
-{
-    ulong zobristKey = board.ZobristKey;
-    if (depth == 0 || board.IsInCheckmate() || board.IsDraw())
-    {
-        int score = EvaluateBoard(board, color) * color;
-        TTEntryType entryType = TTEntryType.ExactValue;
-
-        if (score <= alpha)
-            entryType = TTEntryType.UpperBound;
-        else if (score >= beta)
-            entryType = TTEntryType.LowerBound;
-
-        transpositionTable[zobristKey] = (score, entryType, depth);
-        return score;
-    }
-
-    if (transpositionTable.TryGetValue(zobristKey, out var entry) && entry.depth >= depth)
-    {
-        if (entry.entryType == TTEntryType.ExactValue || entry.entryType == TTEntryType.LowerBound)
+        // captures
+        int movescore;
+        foreach (Move move in moves)
         {
-            alpha = Math.Max(alpha, entry.score);
-            if (alpha >= beta)
-                return entry.score;
+            board.MakeMove(move);
+            // highest priority for eval entries
+            bool found = transpositionTable.TryGetValue(board.ZobristKey, out var entry);
+            movescore = found ? entry.score : 0;
+
+            if (!found)
+            {
+                if (board.IsInCheckmate())
+                    movescore = 10000000;
+                else if (board.IsInCheck())
+                    movescore = 100000;
+                else if (move.IsCapture) // assumed to be independent of current board state.
+                    // order move by MVVLVA value
+                    // this might not work for promotions!!
+                    movescore = pieceValues[(int)move.CapturePieceType - 1] - pieceValues[(int)move.MovePieceType - 1];
+                else
+                    movescore = -pieceValues[(int)move.MovePieceType - 1]; 
+            }
+
+            moveScores.Add(move, movescore);
+            board.UndoMove(move);
         }
-        else if (entry.entryType == TTEntryType.UpperBound)
-        {
-            beta = Math.Min(beta, entry.score);
-            if (alpha >= beta)
-                return entry.score;
-        }
+        return moves.OrderByDescending(move => moveScores[move]).ToArray();;
     }
-
-    int maxEval = int.MinValue;
-    Move[] moves = board.GetLegalMoves();
-    moves = OrderMoveByMVVLVA(moves);
-
-    foreach (Move move in moves)
-    {
-        board.MakeMove(move);
-        int score = -Negamax(board, depth - 1, -beta, -alpha, -color);
-        board.UndoMove(move);
-
-        maxEval = Math.Max(maxEval, score);
-        alpha = Math.Max(alpha, score);
-
-        if (alpha >= beta)
-        {
-            // Beta cutoff
-            TTEntryType entryType = TTEntryType.LowerBound;
-            if (maxEval <= alpha)
-                entryType = TTEntryType.UpperBound;
-            transpositionTable[zobristKey] = (maxEval, entryType, depth);
-            break;
-        }
-    }
-
-    TTEntryType finalEntryType = TTEntryType.ExactValue;
-    if (maxEval <= alpha)
-        finalEntryType = TTEntryType.UpperBound;
-    else if (maxEval >= beta)
-        finalEntryType = TTEntryType.LowerBound;
-
-    transpositionTable[zobristKey] = (maxEval, finalEntryType, depth);
-    return maxEval;
-}
-
 
     int Negamax(Board board, int depth, int alpha, int beta, int color)
     {
+        ulong zobristKey = board.ZobristKey;
+        // LEAF NODE
         if (depth == 0 || board.IsInCheckmate() || board.IsDraw())
         {
+            // should we first check if board is in t-table?
             int score = EvaluateBoard(board, color) * color;
-            // this means that the stored move has a score from the perspective of the player who is about to move
-            // should we instead always store the score from the perspective of white?
-            transpositionTable[board.ZobristKey] = score;
+            TTEntryType entryType = TTEntryType.ExactValue;
+
+            if (score <= alpha)
+                entryType = TTEntryType.UpperBound;
+            else if (score >= beta)
+                entryType = TTEntryType.LowerBound;
+
+            transpositionTable[zobristKey] = (score, entryType, depth);
             return score;
+        }
+
+        // SAME SEARCH DEPTH TRANSPOSITION TABLE HIT
+        if (transpositionTable.TryGetValue(zobristKey, out var entry) && entry.depth >= depth)
+        {
+            if (entry.entryType == TTEntryType.ExactValue || entry.entryType == TTEntryType.LowerBound)
+            {
+                alpha = Math.Max(alpha, entry.score);
+                if (alpha >= beta)
+                    return entry.score;
+            }
+            else if (entry.entryType == TTEntryType.UpperBound)
+            {
+                beta = Math.Min(beta, entry.score);
+                if (alpha >= beta)
+                    return entry.score;
+            }
         }
 
         int maxEval = int.MinValue;
         Move[] moves = board.GetLegalMoves();
-        moves = OrderMoveByMVVLVA(moves);
+        moves = SortMoves(board, moves);
+
         foreach (Move move in moves)
         {
             board.MakeMove(move);
@@ -180,29 +160,63 @@ int Negamax(Board board, int depth, int alpha, int beta, int color)
 
             maxEval = Math.Max(maxEval, score);
             alpha = Math.Max(alpha, score);
+
             if (alpha >= beta)
-                break; // Beta cutoff
+            {
+                // Beta cutoff
+                TTEntryType entryType = TTEntryType.LowerBound;
+                if (maxEval <= alpha)
+                    entryType = TTEntryType.UpperBound;
+                transpositionTable[zobristKey] = (maxEval, entryType, depth);
+                break;
+            }
         }
-        // Console.WriteLine($"Depth: {depth + 1}, Eval: {maxEval}");
+
+        TTEntryType finalEntryType = TTEntryType.ExactValue;
+        if (maxEval <= alpha)
+            finalEntryType = TTEntryType.UpperBound;
+        else if (maxEval >= beta)
+            finalEntryType = TTEntryType.LowerBound;
+
+        transpositionTable[zobristKey] = (maxEval, finalEntryType, depth);
         return maxEval;
     }
 
+
+    // int Negamax(Board board, int depth, int alpha, int beta, int color)
+    // {
+    //     if (depth == 0 || board.IsInCheckmate() || board.IsDraw())
+    //     {
+    //         int score = EvaluateBoard(board, color) * color;
+    //         // this means that the stored move has a score from the perspective of the player who is about to move
+    //         // should we instead always store the score from the perspective of white?
+    //         transpositionTable[board.ZobristKey] = score;
+    //         return score;
+    //     }
+
+    //     int maxEval = int.MinValue;
+    //     Move[] moves = board.GetLegalMoves();
+    //     moves = OrderMoveByMVVLVA(moves);
+    //     foreach (Move move in moves)
+    //     {
+    //         board.MakeMove(move);
+    //         int score = -Negamax(board, depth - 1, -beta, -alpha, -color);
+    //         board.UndoMove(move);
+
+    //         maxEval = Math.Max(maxEval, score);
+    //         alpha = Math.Max(alpha, score);
+    //         if (alpha >= beta)
+    //             break; // Beta cutoff
+    //     }
+    //     // Console.WriteLine($"Depth: {depth + 1}, Eval: {maxEval}");
+    //     return maxEval;
+    // }
+
     int EvaluateBoard(Board board, int color)
     {
-        ulong boardHash = board.ZobristKey;
-
-        if (transpositionTable.ContainsKey(boardHash))
-            return transpositionTable[boardHash];
-
         if (board.IsInCheckmate())
-<<<<<<< Updated upstream
-        {
-            // should these be multiplied by color, or always white's perspective?
-            transpositionTable[boardHash] = (int.MinValue + 1) * color;
-=======
->>>>>>> Stashed changes
+            // should this be multiplied by color, or always white's perspective?
             return (int.MinValue + 1) * color;
-
         if (board.IsDraw())
             return 0;
 
@@ -227,4 +241,5 @@ int Negamax(Board board, int depth, int alpha, int beta, int color)
 
         return score;
     }
+
 }
