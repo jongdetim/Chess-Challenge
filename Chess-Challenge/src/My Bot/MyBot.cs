@@ -27,7 +27,7 @@ enum TTEntryType
 
 public class MyBot : IChessBot
 {
-    static Dictionary<ulong, (int score, TTEntryType entryType, int depth, Move bestMove)> transpositionTable = new();
+    Dictionary<ulong, (int score, TTEntryType entryType, int depth, Move bestMove)> transpositionTable = new();
     static int[] pieceValues = {100, 320, 330, 500, 900, 20000};
 
     // every 32 bits is a row. every 64-bit int here is 2 rows
@@ -53,7 +53,7 @@ public class MyBot : IChessBot
         // Console.WriteLine($"TEST queen: {GetPositionScore(4, 58)}. (should be: -10)\n"); // #DEBUG
 
         // (dont) Clear the transposition table at the beginning of each iteration (have to test if that's better than keeping it between searches)
-        // transpositionTable.Clear();
+        transpositionTable.Clear();
 
         // maybe we should call negamax from root node & return the move along with the score
             // or get move from transposition table
@@ -128,6 +128,7 @@ public class MyBot : IChessBot
         int movescore;
         foreach (Move move in moves)
         {
+            bool is_defended = board.SquareIsAttackedByOpponent(move.TargetSquare);
             board.MakeMove(move);
             // highest priority for eval entries
             bool found = transpositionTable.TryGetValue(board.ZobristKey, out var entry);
@@ -143,17 +144,14 @@ public class MyBot : IChessBot
                     // order move by MVVLVA value
                     // this might not work for promotions!!
                     movescore = pieceValues[(int)move.CapturePieceType - 1] - pieceValues[(int)move.MovePieceType - 1];
-                // check if we hang a piece
-                else if (board.SquareIsAttackedByOpponent(move.TargetSquare))
+                else if (is_defended)
                     movescore = -50000;
-                // add check for castling moves?
-                else
-                    // look at lesser piece moves first
+                else // look at lesser piece moves first
                     movescore = -(int)move.MovePieceType - 1; 
+                // add check for castling moves?
                 // can add another sort for GetPositionScore where we subtract the position bonus
                 // score for the start square from the target square
-            }
-
+            };
             moveScores.Add(move, movescore);
             board.UndoMove(move);
         }
@@ -238,7 +236,7 @@ public class MyBot : IChessBot
             finalEntryType = TTEntryType.UpperBound;
         else if (bestScore >= beta)
             finalEntryType = TTEntryType.LowerBound;
-
+        
         transpositionTable[zobristKey] = (bestScore, finalEntryType, depth, bestMove);
         return bestScore;
     }
@@ -290,11 +288,8 @@ public class MyBot : IChessBot
             score += sign * pieceValues[i % 6] * piecelists[i].Count;
 
             foreach (Piece piece in piecelists[i])
-            {
                 // need to reverse index for black player
-                int index = sign == 1 ? piece.Square.Index : 63 - piece.Square.Index;
-                score += sign * GetPositionScore(i % 6, index);
-            }
+                score += sign * GetPositionScore(i % 6, sign == 1 ? piece.Square.Index : 63 - piece.Square.Index);
         }
         // King safety evaluation.
         if (board.IsInCheck())
