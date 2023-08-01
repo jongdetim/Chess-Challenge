@@ -74,6 +74,7 @@ public class MyBot : IChessBot
         //     }
         // }
 
+
         // need to test this, negation is confusing
         int bestScore = Negamax(board, depth, int.MinValue + 1, int.MaxValue - 1, color);
 
