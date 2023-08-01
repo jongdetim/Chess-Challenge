@@ -10,6 +10,7 @@ using ChessChallenge.API;
 
 // early stopping (iterative deepening + clock)
 // quiescence search
+// threat move sorting
 // better pawn evaluation
 // separate early game / midgame based piecePositionValueTables
 // tests & a way to measure performance
@@ -26,7 +27,7 @@ enum TTEntryType
 
 public class MyBot : IChessBot
 {
-    Dictionary<ulong, (int score, TTEntryType entryType, int depth)> transpositionTable = new();
+    static Dictionary<ulong, (int score, TTEntryType entryType, int depth, Move bestMove)> transpositionTable = new();
     static int[] pieceValues = {100, 320, 330, 500, 900, 20000};
 
     // every 32 bits is a row. every 64-bit int here is 2 rows
@@ -44,8 +45,6 @@ public class MyBot : IChessBot
     
     public Move Think(Board board, Timer timer)
     {
-        int bestScore = int.MinValue;
-        Move bestMove = default;
         int depth = 4;
         int color = board.IsWhiteToMove ? 1 : -1;
 
@@ -57,25 +56,66 @@ public class MyBot : IChessBot
         // transpositionTable.Clear();
 
         // maybe we should call negamax from root node & return the move along with the score
-        Move[] moves = board.GetLegalMoves();
-        moves = SortMoves(board, moves);
-        foreach (Move move in moves)
-        {
-            board.MakeMove(move);
-            int score = -Negamax(board, depth - 1, int.MinValue + 1, int.MaxValue - 1, -color);
-            board.UndoMove(move);
+            // or get move from transposition table
+        // Move[] moves = board.GetLegalMoves();
+        // moves = SortMoves(board, moves);
+        // foreach (Move move in moves)
+        // {
+        //     board.MakeMove(move);
+        //     int score = -Negamax(board, depth - 1, int.MinValue + 1, int.MaxValue - 1, -color);
+        //     board.UndoMove(move);
 
-            // Console.WriteLine($"score: {score}\n move: {move}");
+        //     // Console.WriteLine($"score: {score}\n move: {move}");
 
-            if (score > bestScore)
-            {
-                bestScore = score;
-                bestMove = move;
-            }
-        }
-        Console.WriteLine($"Best score: {bestScore}\n Best move: {bestMove}"); // #DEBUG
-        return bestMove;
+        //     if (score > bestScore)
+        //     {
+        //         bestScore = score;
+        //         bestMove = move;
+        //     }
+        // }
+
+        // need to test this, negation is confusing
+        int bestScore = Negamax(board, depth, int.MinValue + 1, int.MaxValue - 1, color);
+
+
+        Move[] pv = GetPrincipalVariation(board, depth); // #DEBUG
+        Console.WriteLine($"Best score: {bestScore}\n Best move: {pv[0]}"); // #DEBUG
+        Console.WriteLine($"principal variation:"); // #DEBUG
+        foreach (Move move in pv) // #DEBUG
+            Console.WriteLine(move); // #DEBUG
+
+        return pv[0];
     }
+
+    Move[] GetPrincipalVariation(Board board, int depth) // #DEBUG
+    { // #DEBUG
+        Move[] principalVariation = new Move[depth]; // #DEBUG
+        int validMovesCount = 0; // #DEBUG
+
+        for (int currentDepth = 0; currentDepth < depth; currentDepth++) // #DEBUG
+        { // #DEBUG
+            ulong zobristKey = board.ZobristKey; // #DEBUG
+
+            // can shorten this in unsafe way by using [indexing] instead of TryGetValue
+            if (transpositionTable.TryGetValue(zobristKey, out var entry) && entry.bestMove != Move.NullMove) // #DEBUG
+            { // #DEBUG
+                principalVariation[currentDepth] = entry.bestMove; // #DEBUG
+                board.MakeMove(entry.bestMove); // #DEBUG
+                validMovesCount++; // #DEBUG
+            } // #DEBUG
+            else // #DEBUG
+                break; // Transposition table entry not found, or best move is null // #DEBUG
+        } // #DEBUG
+
+        // Undo any moves made during the backtracking // #DEBUG
+        for (int i = validMovesCount - 1; i >= 0; i--) // #DEBUG
+        { // #DEBUG
+            board.UndoMove(principalVariation[i]); // #DEBUG
+        } // #DEBUG
+
+        return principalVariation; // #DEBUG
+    } // #DEBUG
+
 
     Move[] SortMoves(Board board, Move[] moves)
     {
@@ -102,8 +142,15 @@ public class MyBot : IChessBot
                     // order move by MVVLVA value
                     // this might not work for promotions!!
                     movescore = pieceValues[(int)move.CapturePieceType - 1] - pieceValues[(int)move.MovePieceType - 1];
+                // check if we hang a piece
+                else if (board.SquareIsAttackedByOpponent(move.TargetSquare))
+                    movescore = -50000;
+                // add check for castling moves?
                 else
-                    movescore = -pieceValues[(int)move.MovePieceType - 1]; 
+                    // look at lesser piece moves first
+                    movescore = -(int)move.MovePieceType - 1; 
+                // can add another sort for GetPositionScore where we subtract the position bonus
+                // score for the start square from the target square
             }
 
             moveScores.Add(move, movescore);
@@ -112,6 +159,7 @@ public class MyBot : IChessBot
         return moves.OrderByDescending(move => moveScores[move]).ToArray();;
     }
 
+// failsoft alpha-beta pruning negamax search with transposition table
     int Negamax(Board board, int depth, int alpha, int beta, int color)
     {
         ulong zobristKey = board.ZobristKey;
@@ -127,7 +175,7 @@ public class MyBot : IChessBot
             else if (score >= beta)
                 entryType = TTEntryType.LowerBound;
 
-            transpositionTable[zobristKey] = (score, entryType, depth);
+            transpositionTable[zobristKey] = (score, entryType, depth, Move.NullMove);
             return score;
         }
 
@@ -148,7 +196,8 @@ public class MyBot : IChessBot
             }
         }
 
-        int maxEval = int.MinValue;
+        int bestScore = int.MinValue;
+        Move bestMove = Move.NullMove;
         Move[] moves = board.GetLegalMoves();
         moves = SortMoves(board, moves);
 
@@ -158,28 +207,39 @@ public class MyBot : IChessBot
             int score = -Negamax(board, depth - 1, -beta, -alpha, -color);
             board.UndoMove(move);
 
-            maxEval = Math.Max(maxEval, score);
+            // bestScore = Math.Max(bestScore, score);
             alpha = Math.Max(alpha, score);
 
-            if (alpha >= beta)
+            if (score > bestScore)
             {
-                // Beta cutoff
-                TTEntryType entryType = TTEntryType.LowerBound;
-                if (maxEval <= alpha)
-                    entryType = TTEntryType.UpperBound;
-                transpositionTable[zobristKey] = (maxEval, entryType, depth);
-                break;
+                bestScore = score;
+                bestMove = move;
             }
+            if (score >= beta)
+                // Beta cutoff (remaining moves get pruned)
+                    // should we write to t-table here?
+                break;
+
+    
+            // if (alpha >= beta)
+            // {
+            //     // Beta cutoff (remaining moves get pruned)
+            //     TTEntryType entryType = TTEntryType.LowerBound;
+            //     if (bestScore <= alpha)
+            //         entryType = TTEntryType.UpperBound;
+            //     transpositionTable[zobristKey] = (bestScore, entryType, depth, Move.NullMove);
+            //     break;
+            // }
         }
 
         TTEntryType finalEntryType = TTEntryType.ExactValue;
-        if (maxEval <= alpha)
+        if (bestScore <= alpha)
             finalEntryType = TTEntryType.UpperBound;
-        else if (maxEval >= beta)
+        else if (bestScore >= beta)
             finalEntryType = TTEntryType.LowerBound;
 
-        transpositionTable[zobristKey] = (maxEval, finalEntryType, depth);
-        return maxEval;
+        transpositionTable[zobristKey] = (bestScore, finalEntryType, depth, bestMove);
+        return bestScore;
     }
 
 
@@ -194,7 +254,7 @@ public class MyBot : IChessBot
     //         return score;
     //     }
 
-    //     int maxEval = int.MinValue;
+    //     int bestScore = int.MinValue;
     //     Move[] moves = board.GetLegalMoves();
     //     moves = OrderMoveByMVVLVA(moves);
     //     foreach (Move move in moves)
@@ -203,13 +263,13 @@ public class MyBot : IChessBot
     //         int score = -Negamax(board, depth - 1, -beta, -alpha, -color);
     //         board.UndoMove(move);
 
-    //         maxEval = Math.Max(maxEval, score);
+    //         bestScore = Math.Max(bestScore, score);
     //         alpha = Math.Max(alpha, score);
     //         if (alpha >= beta)
     //             break; // Beta cutoff
     //     }
-    //     // Console.WriteLine($"Depth: {depth + 1}, Eval: {maxEval}");
-    //     return maxEval;
+    //     // Console.WriteLine($"Depth: {depth + 1}, Eval: {bestScore}");
+    //     return bestScore;
     // }
 
     int EvaluateBoard(Board board, int color)
