@@ -18,6 +18,7 @@ using ChessChallenge.API;
 // condense code to < 1024 tokens
     // embed functions, use ternary operators, replace math.max and valuemax etc. with constant values
 
+// change to hard values (0, 1, 2)
 enum TTEntryType
 {
     UpperBound,
@@ -45,7 +46,7 @@ public class MyBot : IChessBot
     
     public Move Think(Board board, Timer timer)
     {
-        int depth = 4;
+        int depth = 5;
         int color = board.IsWhiteToMove ? 1 : -1;
 
         // Console.WriteLine($"TEST pawn: {GetPositionScore(0, 35)}. (should be: 25)\n"); // #DEBUG
@@ -114,6 +115,7 @@ public class MyBot : IChessBot
             board.UndoMove(principalVariation[i]); // #DEBUG
         } // #DEBUG
 
+        Console.WriteLine("pv moves found in table " + validMovesCount);
         return principalVariation; // #DEBUG
     } // #DEBUG
 
@@ -162,6 +164,20 @@ public class MyBot : IChessBot
     int Negamax(Board board, int depth, int alpha, int beta, int color)
     {
         ulong zobristKey = board.ZobristKey;
+
+        // SAME SEARCH DEPTH TRANSPOSITION TABLE HIT
+        if (transpositionTable.TryGetValue(zobristKey, out var entry) && entry.depth >= depth)
+        {
+            // Console.WriteLine($"SAME SEARCH DEPTH TRANSPOSITION TABLE HIT");
+            if (entry.entryType == TTEntryType.ExactValue)
+                return entry.score;
+            if (entry.entryType == TTEntryType.LowerBound)
+                alpha = Math.Max(alpha, entry.score);
+            else if (entry.entryType == TTEntryType.UpperBound)
+                beta = Math.Min(beta, entry.score);
+            if (alpha >= beta)
+                return entry.score;
+        }
         // LEAF NODE
         if (depth == 0 || board.IsInCheckmate() || board.IsDraw())
         {
@@ -178,24 +194,24 @@ public class MyBot : IChessBot
             return score;
         }
 
-        // SAME SEARCH DEPTH TRANSPOSITION TABLE HIT
-        if (transpositionTable.TryGetValue(zobristKey, out var entry) && entry.depth >= depth)
-        {
-            if (entry.entryType == TTEntryType.ExactValue || entry.entryType == TTEntryType.LowerBound)
-            {
-                alpha = Math.Max(alpha, entry.score);
-                if (alpha >= beta)
-                    return entry.score;
-            }
-            else if (entry.entryType == TTEntryType.UpperBound)
-            {
-                beta = Math.Min(beta, entry.score);
-                if (alpha >= beta)
-                    return entry.score;
-            }
-        }
+        // // SAME SEARCH DEPTH TRANSPOSITION TABLE HIT
+        // if (transpositionTable.TryGetValue(zobristKey, out var entry) && entry.depth >= depth)
+        // {
+        //     if (entry.entryType == TTEntryType.ExactValue || entry.entryType == TTEntryType.LowerBound)
+        //     {
+        //         alpha = Math.Max(alpha, entry.score);
+        //         if (alpha >= beta)
+        //             return entry.score;
+        //     }
+        //     else if (entry.entryType == TTEntryType.UpperBound)
+        //     {
+        //         beta = Math.Min(beta, entry.score);
+        //         if (alpha >= beta)
+        //             return entry.score;
+        //     }
+        // }
 
-        int bestScore = int.MinValue;
+        int bestScore = int.MinValue + 2;
         Move bestMove = Move.NullMove;
         Move[] moves = board.GetLegalMoves();
         moves = SortMoves(board, moves);
@@ -215,9 +231,12 @@ public class MyBot : IChessBot
                 bestMove = move;
             }
             if (score >= beta)
+            {
                 // Beta cutoff (remaining moves get pruned)
                     // should we write to t-table here?
+                // Console.WriteLine($"beta cutoff: remaining moves pruned. best score: {bestScore}");
                 break;
+            }
 
     
             // if (alpha >= beta)
@@ -238,6 +257,11 @@ public class MyBot : IChessBot
             finalEntryType = TTEntryType.LowerBound;
         
         transpositionTable[zobristKey] = (bestScore, finalEntryType, depth, bestMove);
+
+        System.Diagnostics.Debug.Assert(bestScore != int.MinValue); // #DEBUG
+        if (depth > 2) // #DEBUG
+            Console.WriteLine("best move" + bestMove + " at depth:" + depth);   // #DEBUG
+        System.Diagnostics.Debug.Assert(bestMove != Move.NullMove); // #DEBUG
         return bestScore;
     }
 
