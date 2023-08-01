@@ -99,6 +99,8 @@ public class MyBot : IChessBot
             ulong zobristKey = board.ZobristKey; // #DEBUG
 
             // can shorten this in unsafe way by using [indexing] instead of TryGetValue
+            // if (transpositionTable.TryGetValue(zobristKey, out var test))
+            //     Console.WriteLine("found position in table");
             if (transpositionTable.TryGetValue(zobristKey, out var entry) && entry.bestMove != Move.NullMove) // #DEBUG
             { // #DEBUG
                 principalVariation[currentDepth] = entry.bestMove; // #DEBUG
@@ -115,7 +117,7 @@ public class MyBot : IChessBot
             board.UndoMove(principalVariation[i]); // #DEBUG
         } // #DEBUG
 
-        Console.WriteLine("pv moves found in table " + validMovesCount);
+        // Console.WriteLine("pv moves found in table " + validMovesCount);
         return principalVariation; // #DEBUG
     } // #DEBUG
 
@@ -163,6 +165,7 @@ public class MyBot : IChessBot
 // failsoft alpha-beta pruning negamax search with transposition table
     int Negamax(Board board, int depth, int alpha, int beta, int color)
     {
+        int alpha_orig = alpha;
         ulong zobristKey = board.ZobristKey;
 
         // SAME SEARCH DEPTH TRANSPOSITION TABLE HIT
@@ -211,7 +214,7 @@ public class MyBot : IChessBot
         //     }
         // }
 
-        int bestScore = int.MinValue + 2;
+        int bestScore = int.MinValue;
         Move bestMove = Move.NullMove;
         Move[] moves = board.GetLegalMoves();
         moves = SortMoves(board, moves);
@@ -230,7 +233,7 @@ public class MyBot : IChessBot
                 bestScore = score;
                 bestMove = move;
             }
-            if (score >= beta)
+            if (alpha >= beta)
             {
                 // Beta cutoff (remaining moves get pruned)
                     // should we write to t-table here?
@@ -251,7 +254,7 @@ public class MyBot : IChessBot
         }
 
         TTEntryType finalEntryType = TTEntryType.ExactValue;
-        if (bestScore <= alpha)
+        if (bestScore <= alpha_orig)
             finalEntryType = TTEntryType.UpperBound;
         else if (bestScore >= beta)
             finalEntryType = TTEntryType.LowerBound;
@@ -259,8 +262,8 @@ public class MyBot : IChessBot
         transpositionTable[zobristKey] = (bestScore, finalEntryType, depth, bestMove);
 
         System.Diagnostics.Debug.Assert(bestScore != int.MinValue); // #DEBUG
-        if (depth > 2) // #DEBUG
-            Console.WriteLine("best move" + bestMove + " at depth:" + depth);   // #DEBUG
+        // if (depth > 2) // #DEBUG
+            // Console.WriteLine("best move" + bestMove + " at depth:" + depth);   // #DEBUG
         System.Diagnostics.Debug.Assert(bestMove != Move.NullMove); // #DEBUG
         return bestScore;
     }
