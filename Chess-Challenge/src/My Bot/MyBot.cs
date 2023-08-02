@@ -5,10 +5,12 @@ using ChessChallenge.API;
 
 // TODO:
 // _________________________________________________________________
-// fix a-b pruning interaction with transposition table
-// principal variation search & better move ordering
-
+// track metrics (time, nodes, etc.)
+// test if fixed:
+//  a-b pruning interaction with transposition table
+// why does move sorting not speed up search?
 // early stopping (iterative deepening + clock)
+
 // quiescence search
 // threat move sorting
 // better pawn evaluation
@@ -46,7 +48,7 @@ public class MyBot : IChessBot
     
     public Move Think(Board board, Timer timer)
     {
-        int depth = 5;
+        int depth = 4;
         int color = board.IsWhiteToMove ? 1 : -1;
 
         // Console.WriteLine($"TEST pawn: {GetPositionScore(0, 35)}. (should be: 25)\n"); // #DEBUG
@@ -54,7 +56,7 @@ public class MyBot : IChessBot
         // Console.WriteLine($"TEST queen: {GetPositionScore(4, 58)}. (should be: -10)\n"); // #DEBUG
 
         // (dont) Clear the transposition table at the beginning of each iteration (have to test if that's better than keeping it between searches)
-        transpositionTable.Clear();
+        // transpositionTable.Clear();
 
         // maybe we should call negamax from root node & return the move along with the score
             // or get move from transposition table
@@ -129,21 +131,29 @@ public class MyBot : IChessBot
             // do we really want to search checks before captures?
 
         // captures
-        int movescore;
+        int movescore = 0;
+        bool found = transpositionTable.TryGetValue(board.ZobristKey, out var entry);
         foreach (Move move in moves)
         {
             bool is_defended = board.SquareIsAttackedByOpponent(move.TargetSquare);
             board.MakeMove(move);
             // highest priority for eval entries
-            bool found = transpositionTable.TryGetValue(board.ZobristKey, out var entry);
-            movescore = found ? entry.score : 0;
+            // perhaps better to only priority the PV move?
+            // bool found = transpositionTable.TryGetValue(board.ZobristKey, out var entry);
+            // movescore = found ? entry.score : 0;
+
+            if (found && entry.bestMove == move)
+                movescore = 1000006;
+            // else if (found && entry.bestMove != move)
+            //     movescore = entry.score;
+            // else // not found (or not the best move
 
             if (!found)
             {
                 if (board.IsInCheckmate())
-                    movescore = 10000000;
+                    movescore = 10000007;
                 else if (board.IsInCheck())
-                    movescore = 100000;
+                    movescore = 100005;
                 else if (move.IsCapture) // assumed to be independent of current board state.
                     // order move by MVVLVA value
                     // this might not work for promotions!!
@@ -156,7 +166,7 @@ public class MyBot : IChessBot
                 // can add another sort for GetPositionScore where we subtract the position bonus
                 // score for the start square from the target square
             };
-            moveScores.Add(move, movescore);
+            moveScores[move] = movescore;
             board.UndoMove(move);
         }
         return moves.OrderByDescending(move => moveScores[move]).ToArray();;
@@ -298,6 +308,7 @@ public class MyBot : IChessBot
     //     return bestScore;
     // }
 
+    // always from White's perspective
     int EvaluateBoard(Board board, int color)
     {
         if (board.IsInCheckmate())
@@ -320,7 +331,7 @@ public class MyBot : IChessBot
         }
         // King safety evaluation.
         if (board.IsInCheck())
-            score += 50 * color;
+            score -= 50 * color;
 
         return score;
     }
