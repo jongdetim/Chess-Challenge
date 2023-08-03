@@ -30,6 +30,9 @@ enum TTEntryType
 
 public class MyBot : IChessBot
 {
+    int NODES_VISITED; // #DEBUG
+    int TABLE_HITS; // #DEBUG
+
     Dictionary<ulong, (int score, TTEntryType entryType, int depth, Move bestMove)> transpositionTable = new();
     static int[] pieceValues = {100, 320, 330, 500, 900, 20000};
 
@@ -48,7 +51,9 @@ public class MyBot : IChessBot
     
     public Move Think(Board board, Timer timer)
     {
-        int depth = 4;
+        NODES_VISITED = 0; // #DEBUG
+        TABLE_HITS = 0; // #DEBUG
+        int depth = 5;
         int color = board.IsWhiteToMove ? 1 : -1;
 
         // Console.WriteLine($"TEST pawn: {GetPositionScore(0, 35)}. (should be: 25)\n"); // #DEBUG
@@ -87,7 +92,8 @@ public class MyBot : IChessBot
         Console.WriteLine($"principal variation:"); // #DEBUG
         foreach (Move move in pv) // #DEBUG
             Console.WriteLine(move); // #DEBUG
-
+        Console.WriteLine($"Nodes visited: {NODES_VISITED}"); // #DEBUG
+        Console.WriteLine($"Table hits: {TABLE_HITS}"); // #DEBUG
         return pv[0];
     }
 
@@ -160,8 +166,8 @@ public class MyBot : IChessBot
                     movescore = pieceValues[(int)move.CapturePieceType - 1] - pieceValues[(int)move.MovePieceType - 1];
                 else if (is_defended)
                     movescore = -50000;
-                else // look at lesser piece moves first
-                    movescore = -(int)move.MovePieceType - 1; 
+                // else // look at lesser piece moves first
+                //     movescore = -(int)move.MovePieceType - 1; 
                 // add check for castling moves?
                 // can add another sort for GetPositionScore where we subtract the position bonus
                 // score for the start square from the target square
@@ -172,15 +178,47 @@ public class MyBot : IChessBot
         return moves.OrderByDescending(move => moveScores[move]).ToArray();;
     }
 
-// failsoft alpha-beta pruning negamax search with transposition table
+    // quiescence search that only searches captures and checks
+    // int Quiescence(Board board, int depth, int alpha, int beta, int color)
+    // {
+    //     int stand_pat = EvaluateBoard(board, color) * color;
+    //     if (depth == 0 || board.IsInCheckmate() || board.IsDraw())
+    //         return stand_pat;
+
+    //     if (stand_pat >= beta)
+    //         return beta;
+    //     if (alpha < stand_pat)
+    //         alpha = stand_pat;
+
+    //     Move[] moves = board.GetLegalMoves();
+    //     moves = SortMoves(board, moves);
+    //     foreach (Move move in moves)
+    //     {
+    //         if (!move.IsCapture && !board.SquareIsAttackedByOpponent(move.TargetSquare))
+    //             continue;
+    //         board.MakeMove(move);
+    //         int score = -Quiescence(board, depth - 1, -beta, -alpha, -color);
+    //         board.UndoMove(move);
+
+    //         if (score >= beta)
+    //             return beta;
+    //         if (score > alpha)
+    //             alpha = score;
+    //     }
+    //     return alpha;
+    // }
+
+    // failsoft alpha-beta pruning negamax search with transposition table
     int Negamax(Board board, int depth, int alpha, int beta, int color)
     {
         int alpha_orig = alpha;
         ulong zobristKey = board.ZobristKey;
 
+        NODES_VISITED++; // #DEBUG
         // SAME SEARCH DEPTH TRANSPOSITION TABLE HIT
         if (transpositionTable.TryGetValue(zobristKey, out var entry) && entry.depth >= depth)
         {
+            TABLE_HITS++; // #DEBUG
             // Console.WriteLine($"SAME SEARCH DEPTH TRANSPOSITION TABLE HIT");
             if (entry.entryType == TTEntryType.ExactValue)
                 return entry.score;
