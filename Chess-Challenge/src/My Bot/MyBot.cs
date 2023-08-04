@@ -33,7 +33,7 @@ public class MyBot : IChessBot
     int NODES_VISITED; // #DEBUG
     int TABLE_HITS; // #DEBUG
 
-    Dictionary<ulong, (int score, TTEntryType entryType, int depth, Move bestMove)> transpositionTable = new();
+    Dictionary<ulong, (int score, TTEntryType entryType, byte depth, Move bestMove)> transpositionTable = new();
     static int[] pieceValues = {100, 320, 330, 500, 900, 20000};
 
     // every 32 bits is a row. every 64-bit int here is 2 rows
@@ -53,7 +53,7 @@ public class MyBot : IChessBot
     {
         NODES_VISITED = 0; // #DEBUG
         TABLE_HITS = 0; // #DEBUG
-        int depth = 5;
+        byte depth = 5;
         int color = board.IsWhiteToMove ? 1 : -1;
 
         // Console.WriteLine($"TEST pawn: {GetPositionScore(0, 35)}. (should be: 25)\n"); // #DEBUG
@@ -209,7 +209,7 @@ public class MyBot : IChessBot
     // }
 
     // failsoft alpha-beta pruning negamax search with transposition table
-    int Negamax(Board board, int depth, int alpha, int beta, int color)
+    int Negamax(Board board, byte depth, int alpha, int beta, int color)
     {
         int alpha_orig = alpha;
         ulong zobristKey = board.ZobristKey;
@@ -270,7 +270,7 @@ public class MyBot : IChessBot
         foreach (Move move in moves)
         {
             board.MakeMove(move);
-            int score = -Negamax(board, depth - 1, -beta, -alpha, -color);
+            int score = -Negamax(board, (byte)(depth - 1), -beta, -alpha, -color);
             board.UndoMove(move);
 
             // bestScore = Math.Max(bestScore, score);
