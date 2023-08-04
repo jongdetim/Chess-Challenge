@@ -61,7 +61,7 @@ public class MyBot : IChessBot
         // Console.WriteLine($"TEST queen: {GetPositionScore(4, 58)}. (should be: -10)\n"); // #DEBUG
 
         // (dont) Clear the transposition table at the beginning of each iteration (have to test if that's better than keeping it between searches)
-        // transpositionTable.Clear();
+        transpositionTable.Clear();
 
         // maybe we should call negamax from root node & return the move along with the score
             // or get move from transposition table
