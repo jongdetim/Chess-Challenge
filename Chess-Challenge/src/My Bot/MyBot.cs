@@ -383,7 +383,7 @@ public class MyBot : IChessBot
             {
                 // need to reverse index for black player
                 score += sign * GetPositionScore(i % 6, sign == 1 ? piece.Square.Index : 63 - piece.Square.Index);
-                // add mobility score
+                // add mobility score 
                 // NOTE: this incentivizes the king to have mobility too. is that good? i think so for now.
                 // PROBLEM! all this does now is incentivize the queen to develop early, which is not good.
                 score += sign * (int)piece.PieceType * BitboardHelper.GetNumberOfSetBits(BitboardHelper.GetPieceAttacks(piece.PieceType, piece.Square, board, i < 6));
