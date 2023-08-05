@@ -171,6 +171,22 @@ public class MyBot : IChessBot
                 // add check for castling moves?
                 // can add another sort for GetPositionScore where we subtract the position bonus
                 // score for the start square from the target square
+
+
+                // these might be overkill for sorting!!!
+                // perspective for these are flipped, since we already made the move
+                else
+                {
+                    // add piece square bonus
+                    movescore += GetPositionScore((int)move.MovePieceType - 1, !board.IsWhiteToMove ? move.TargetSquare.Index : 63 - move.TargetSquare.Index) - 
+                        GetPositionScore((int)move.MovePieceType - 1, !board.IsWhiteToMove ? move.StartSquare.Index : 63 - move.StartSquare.Index);
+                // add mobility score
+                // MOBILITY SCORE VALUES SHOULD NOT BE MULTIPLIED BY MOVE TYPE, BUT A DIFFERENT VALUE TABLE
+                    movescore += (int)move.MovePieceType * (BitboardHelper.GetNumberOfSetBits(BitboardHelper.GetPieceAttacks(move.MovePieceType, move.TargetSquare, board, !board.IsWhiteToMove)) - 
+                        BitboardHelper.GetNumberOfSetBits(BitboardHelper.GetPieceAttacks(move.MovePieceType, move.StartSquare, board, !board.IsWhiteToMove)));
+
+                }
+            
             };
             moveScores[move] = movescore;
             board.UndoMove(move);
@@ -364,8 +380,14 @@ public class MyBot : IChessBot
             score += sign * pieceValues[i % 6] * piecelists[i].Count;
 
             foreach (Piece piece in piecelists[i])
+            {
                 // need to reverse index for black player
                 score += sign * GetPositionScore(i % 6, sign == 1 ? piece.Square.Index : 63 - piece.Square.Index);
+                // add mobility score
+                // NOTE: this incentivizes the king to have mobility too. is that good? i think so for now.
+                // PROBLEM! all this does now is incentivize the queen to develop early, which is not good.
+                score += sign * (int)piece.PieceType * BitboardHelper.GetNumberOfSetBits(BitboardHelper.GetPieceAttacks(piece.PieceType, piece.Square, board, i < 6));
+            }
         }
         // King safety evaluation.
         if (board.IsInCheck())
