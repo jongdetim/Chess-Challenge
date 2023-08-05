@@ -1,3 +1,5 @@
 {
     "dotnet.defaultSolution": "Chess-Challenge/Chess-Challenge.sln"
-}
+} // {
+//     "dotnet.defaultSolution": "Chess-Challenge/Chess-Challenge.sln"
+// }

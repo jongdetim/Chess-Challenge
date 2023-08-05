@@ -53,7 +53,7 @@ public class MyBot : IChessBot
     {
         NODES_VISITED = 0; // #DEBUG
         TABLE_HITS = 0; // #DEBUG
-        byte depth = 5;
+        byte depth = 6;
         int color = board.IsWhiteToMove ? 1 : -1;
 
         // Console.WriteLine($"TEST pawn: {GetPositionScore(0, 35)}. (should be: 25)\n"); // #DEBUG
@@ -94,6 +94,8 @@ public class MyBot : IChessBot
             Console.WriteLine(move); // #DEBUG
         Console.WriteLine($"Nodes visited: {NODES_VISITED}"); // #DEBUG
         Console.WriteLine($"Table hits: {TABLE_HITS}"); // #DEBUG
+        Console.WriteLine($"Time elapsed: {timer.MillisecondsElapsedThisTurn} ms"); // #DEBUG
+        Console.WriteLine($"Nodes per second: {NODES_VISITED / (timer.MillisecondsElapsedThisTurn / 1000.0)}"); // #DEBUG
         return pv[0];
     }
 
@@ -249,7 +251,7 @@ public class MyBot : IChessBot
         if (depth == 0 || board.IsInCheckmate() || board.IsDraw())
         {
             // should we first check if board is in t-table?
-            int score = EvaluateBoard(board, color) * color;
+            int score = EvaluateBoard(board, color, depth) * color;
             TTEntryType entryType = TTEntryType.ExactValue;
 
             if (score <= alpha)
@@ -363,11 +365,11 @@ public class MyBot : IChessBot
     // }
 
     // always from White's perspective
-    int EvaluateBoard(Board board, int color)
+    int EvaluateBoard(Board board, int color, byte depth)
     {
         if (board.IsInCheckmate())
             // should this be multiplied by color, or always white's perspective?
-            return (int.MinValue + 1) * color;
+            return (int.MinValue + 20 - depth) * color;
         if (board.IsDraw())
             return 0;
 
