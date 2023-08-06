@@ -53,7 +53,7 @@ public class MyBot : IChessBot
     {
         NODES_VISITED = 0; // #DEBUG
         TABLE_HITS = 0; // #DEBUG
-        byte depth = 6;
+        byte depth = 5;
         int color = board.IsWhiteToMove ? 1 : -1;
 
         // Console.WriteLine($"TEST pawn: {GetPositionScore(0, 35)}. (should be: 25)\n"); // #DEBUG
@@ -184,8 +184,8 @@ public class MyBot : IChessBot
                         GetPositionScore((int)move.MovePieceType - 1, !board.IsWhiteToMove ? move.StartSquare.Index : 63 - move.StartSquare.Index);
                 // add mobility score
                 // MOBILITY SCORE VALUES SHOULD NOT BE MULTIPLIED BY MOVE TYPE, BUT A DIFFERENT VALUE TABLE
-                    movescore += (int)move.MovePieceType * (BitboardHelper.GetNumberOfSetBits(BitboardHelper.GetPieceAttacks(move.MovePieceType, move.TargetSquare, board, !board.IsWhiteToMove)) - 
-                        BitboardHelper.GetNumberOfSetBits(BitboardHelper.GetPieceAttacks(move.MovePieceType, move.StartSquare, board, !board.IsWhiteToMove)));
+                    // movescore += (int)move.MovePieceType * (BitboardHelper.GetNumberOfSetBits(BitboardHelper.GetPieceAttacks(move.MovePieceType, move.TargetSquare, board, !board.IsWhiteToMove)) - 
+                    //     BitboardHelper.GetNumberOfSetBits(BitboardHelper.GetPieceAttacks(move.MovePieceType, move.StartSquare, board, !board.IsWhiteToMove)));
 
                 }
             
