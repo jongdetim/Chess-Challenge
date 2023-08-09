@@ -89,11 +89,12 @@ public class MyBot : IChessBot
 
         for (byte i = 1; i <= depth; i++)
         {
-            bestScore = Negamax(board, i, int.MinValue + 1, int.MaxValue - 1, color);
+            bestScore = Negamax(board, i, int.MinValue + 30, int.MaxValue - 30, color);
             // set a break if time runs out, based on timer
-            if (timer.MillisecondsElapsedThisTurn > 300 | bestScore > int.MaxValue - 30)
+            // if (timer.MillisecondsElapsedThisTurn > 300 | bestScore > int.MaxValue - 30)
+            if (timer.MillisecondsElapsedThisTurn > 300)
             {
-                Console.WriteLine($"Time ran out OR mate found at depth: {i}"); // #DEBUG
+                Console.WriteLine($"Time ran out at depth: {i}"); // #DEBUG
                 depth = i;
                 break;
             }
