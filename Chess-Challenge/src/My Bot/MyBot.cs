@@ -53,8 +53,9 @@ public class MyBot : IChessBot
     {
         NODES_VISITED = 0; // #DEBUG
         TABLE_HITS = 0; // #DEBUG
-        byte depth = 5;
+        byte depth = 7;
         int color = board.IsWhiteToMove ? 1 : -1;
+        int bestScore = 12345678; // #DEBUG
 
         // Console.WriteLine($"TEST pawn: {GetPositionScore(0, 35)}. (should be: 25)\n"); // #DEBUG
         // Console.WriteLine($"TEST king: {GetPositionScore(5, 63)}. (should be: -30)\n"); // #DEBUG
@@ -82,9 +83,22 @@ public class MyBot : IChessBot
         //     }
         // }
 
+        // bestScore = Negamax(board, depth, int.MinValue + 1, int.MaxValue - 1, color);
 
-        // need to test this, negation is confusing
-        int bestScore = Negamax(board, depth, int.MinValue + 1, int.MaxValue - 1, color);
+        // Iterative Deepening
+
+        for (byte i = 1; i <= depth; i++)
+        {
+            bestScore = Negamax(board, i, int.MinValue + 1, int.MaxValue - 1, color);
+            // set a break if time runs out, based on timer
+            if (timer.MillisecondsElapsedThisTurn > 300 | bestScore > int.MaxValue - 30)
+            {
+                Console.WriteLine($"Time ran out OR mate found at depth: {i}"); // #DEBUG
+                depth = i;
+                break;
+            }
+        }
+
 
 
         Move[] pv = GetPrincipalVariation(board, depth); // #DEBUG
@@ -152,8 +166,8 @@ public class MyBot : IChessBot
 
             if (found && entry.bestMove == move)
                 movescore = 1000006;
-            // else if (found && entry.bestMove != move)
-            //     movescore = entry.score;
+            else if (found && entry.entryType == TTEntryType.ExactValue)
+                movescore = entry.score;
             // else // not found (or not the best move
 
             if (!found)
@@ -328,8 +342,6 @@ public class MyBot : IChessBot
         transpositionTable[zobristKey] = (bestScore, finalEntryType, depth, bestMove);
 
         System.Diagnostics.Debug.Assert(bestScore != int.MinValue); // #DEBUG
-        // if (depth > 2) // #DEBUG
-            // Console.WriteLine("best move" + bestMove + " at depth:" + depth);   // #DEBUG
         System.Diagnostics.Debug.Assert(bestMove != Move.NullMove); // #DEBUG
         return bestScore;
     }
