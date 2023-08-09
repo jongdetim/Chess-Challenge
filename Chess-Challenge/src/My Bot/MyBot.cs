@@ -53,7 +53,7 @@ public class MyBot : IChessBot
     {
         NODES_VISITED = 0; // #DEBUG
         TABLE_HITS = 0; // #DEBUG
-        byte depth = 7;
+        byte depth = 6;
         int color = board.IsWhiteToMove ? 1 : -1;
         int bestScore = 12345678; // #DEBUG
 
@@ -83,21 +83,21 @@ public class MyBot : IChessBot
         //     }
         // }
 
-        // bestScore = Negamax(board, depth, int.MinValue + 1, int.MaxValue - 1, color);
+        // bestScore = Negamax(board, depth, int.MinValue + 30, int.MaxValue - 30, color);
 
         // Iterative Deepening
 
         for (byte i = 1; i <= depth; i++)
         {
-            bestScore = Negamax(board, i, int.MinValue + 30, int.MaxValue - 30, color);
             // set a break if time runs out, based on timer
             // if (timer.MillisecondsElapsedThisTurn > 300 | bestScore > int.MaxValue - 30)
-            if (timer.MillisecondsElapsedThisTurn > 300)
+            if (timer.MillisecondsElapsedThisTurn > 30000)
             {
-                Console.WriteLine($"Time ran out at depth: {i}"); // #DEBUG
-                depth = i;
+                Console.WriteLine($"Time ran out at depth: {(byte)(i-1)}"); // #DEBUG
+                depth = (byte)(i-1);
                 break;
             }
+            bestScore = Negamax(board, i, int.MinValue + 30, int.MaxValue - 30, color);
         }
 
 
@@ -155,23 +155,32 @@ public class MyBot : IChessBot
 
         // captures
         int movescore = 0;
-        bool found = transpositionTable.TryGetValue(board.ZobristKey, out var entry);
+        bool found = transpositionTable.TryGetValue(board.ZobristKey, out var parent);
         foreach (Move move in moves)
         {
             bool is_defended = board.SquareIsAttackedByOpponent(move.TargetSquare);
             board.MakeMove(move);
             // highest priority for eval entries
             // perhaps better to only priority the PV move?
-            // bool found = transpositionTable.TryGetValue(board.ZobristKey, out var entry);
-            // movescore = found ? entry.score : 0;
+            // bool found = transpositionTable.TryGetValue(board.ZobristKey, out var parent);
+            // movescore = found ? parent.score : 0;
 
-            if (found && entry.bestMove == move)
+            if (found && parent.bestMove == move)
+            {
+                // this should not be possible without iterative deepening, right? it does happen though
+                // Console.WriteLine($"found move in table. move: {move}");
                 movescore = 1000006;
-            else if (found && entry.entryType == TTEntryType.ExactValue)
-                movescore = entry.score;
-            // else // not found (or not the best move
+            }
+            // this time we are searching for the child node, not the parent
+            else if (transpositionTable.TryGetValue(board.ZobristKey, out var entry))
+                movescore = -entry.score;
 
-            if (!found)
+            // else if (found && entry.entryType == TTEntryType.ExactValue)
+            // else if (found)
+            //     movescore = entry.score;
+            // else // not found
+
+            else
             {
                 if (board.IsInCheckmate())
                     movescore = 10000007;
