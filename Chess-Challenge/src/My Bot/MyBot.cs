@@ -91,7 +91,7 @@ public class MyBot : IChessBot
         {
             // set a break if time runs out, based on timer
             // if (timer.MillisecondsElapsedThisTurn > 300 | bestScore > int.MaxValue - 30)
-            if (timer.MillisecondsElapsedThisTurn > 30000)
+            if (timer.MillisecondsElapsedThisTurn > 300)
             {
                 Console.WriteLine($"Time ran out at depth: {(byte)(i-1)}"); // #DEBUG
                 depth = (byte)(i-1);
@@ -274,6 +274,10 @@ public class MyBot : IChessBot
         // LEAF NODE
         if (depth == 0 || board.IsInCheckmate() || board.IsDraw())
         {
+            Console.WriteLine($"LEAF NODE. at depth:" + depth); // #DEBUG
+            Console.WriteLine($"LEAF NODE. is draw:" + board.IsDraw()); // #DEBUG
+            if (board.IsDraw()) // #DEBUG
+                Console.WriteLine(board.CreateDiagram()); // #DEBUG
             // should we first check if board is in t-table?
             int score = EvaluateBoard(board, color, depth) * color;
             TTEntryType entryType = TTEntryType.ExactValue;
@@ -311,6 +315,7 @@ public class MyBot : IChessBot
 
         foreach (Move move in moves)
         {
+            Console.WriteLine(move); // #DEBUG
             board.MakeMove(move);
             int score = -Negamax(board, (byte)(depth - 1), -beta, -alpha, -color);
             board.UndoMove(move);
@@ -353,6 +358,9 @@ public class MyBot : IChessBot
 
         System.Diagnostics.Debug.Assert(bestScore != int.MinValue); // #DEBUG
         System.Diagnostics.Debug.Assert(bestMove != Move.NullMove); // #DEBUG
+
+        Console.WriteLine("best move: " + bestMove); // #DEBUG
+        Console.WriteLine("at depth: " + depth); // #DEBUG
         return bestScore;
     }
 
