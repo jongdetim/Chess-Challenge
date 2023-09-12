@@ -83,22 +83,22 @@ public class MyBot : IChessBot
         //     }
         // }
 
-        // bestScore = Negamax(board, depth, int.MinValue + 30, int.MaxValue - 30, color);
+        bestScore = Negamax(board, depth, int.MinValue + 30, int.MaxValue - 30, color);
 
         // Iterative Deepening
 
-        for (byte i = 1; i <= depth; i++)
-        {
-            // set a break if time runs out, based on timer
-            // if (timer.MillisecondsElapsedThisTurn > 300 | bestScore > int.MaxValue - 30)
-            if (timer.MillisecondsElapsedThisTurn > 300)
-            {
-                Console.WriteLine($"Time ran out at depth: {(byte)(i-1)}"); // #DEBUG
-                depth = (byte)(i-1);
-                break;
-            }
-            bestScore = Negamax(board, i, int.MinValue + 30, int.MaxValue - 30, color);
-        }
+        // for (byte i = 1; i <= depth; i++)
+        // {
+        //     // set a break if time runs out, based on timer
+        //     // if (timer.MillisecondsElapsedThisTurn > 300 | bestScore > int.MaxValue - 30)
+        //     if (timer.MillisecondsElapsedThisTurn > 300)
+        //     {
+        //         Console.WriteLine($"Time ran out at depth: {(byte)(i-1)}"); // #DEBUG
+        //         depth = (byte)(i-1);
+        //         break;
+        //     }
+        //     bestScore = Negamax(board, i, int.MinValue + 30, int.MaxValue - 30, color);
+        // }
 
 
 
@@ -168,12 +168,15 @@ public class MyBot : IChessBot
             if (found && parent.bestMove == move)
             {
                 // this should not be possible without iterative deepening, right? it does happen though
-                // Console.WriteLine($"found move in table. move: {move}");
+                Console.WriteLine($"found move in table. move: {move}");
+                Console.WriteLine(board.CreateDiagram());
                 movescore = 1000006;
+
+                Environment.Exit(0);
             }
             // this time we are searching for the child node, not the parent
-            else if (transpositionTable.TryGetValue(board.ZobristKey, out var entry))
-                movescore = -entry.score;
+            // else if (transpositionTable.TryGetValue(board.ZobristKey, out var entry))
+            //     movescore = -entry.score;
 
             // else if (found && entry.entryType == TTEntryType.ExactValue)
             // else if (found)
@@ -189,7 +192,9 @@ public class MyBot : IChessBot
                 else if (move.IsCapture) // assumed to be independent of current board state.
                     // order move by MVVLVA value
                     // this might not work for promotions!!
-                    movescore = pieceValues[(int)move.CapturePieceType - 1] - pieceValues[(int)move.MovePieceType - 1];
+                    movescore = pieceValues[(int)move.CapturePieceType - 1] - pieceValues[(int)move.MovePieceType - 1] + 1000;
+                    if (is_defended)
+                        movescore -= 800;
                 else if (is_defended)
                     movescore = -50000;
                 // else // look at lesser piece moves first
@@ -274,10 +279,10 @@ public class MyBot : IChessBot
         // LEAF NODE
         if (depth == 0 || board.IsInCheckmate() || board.IsDraw())
         {
-            Console.WriteLine($"LEAF NODE. at depth:" + depth); // #DEBUG
-            Console.WriteLine($"LEAF NODE. is draw:" + board.IsDraw()); // #DEBUG
-            if (board.IsDraw()) // #DEBUG
-                Console.WriteLine(board.CreateDiagram()); // #DEBUG
+            // Console.WriteLine($"LEAF NODE. at depth:" + depth); // #DEBUG
+            // Console.WriteLine($"LEAF NODE. is draw:" + board.IsDraw()); // #DEBUG
+            // if (board.IsDraw()) // #DEBUG
+            //     Console.WriteLine(board.CreateDiagram()); // #DEBUG
             // should we first check if board is in t-table?
             int score = EvaluateBoard(board, color, depth) * color;
             TTEntryType entryType = TTEntryType.ExactValue;
@@ -315,8 +320,9 @@ public class MyBot : IChessBot
 
         foreach (Move move in moves)
         {
-            Console.WriteLine(move); // #DEBUG
+            // Console.WriteLine(move); // #DEBUG
             board.MakeMove(move);
+            Console.WriteLine("MOVE: " + move + " DEPTH: " + depth); // #DEBUG
             int score = -Negamax(board, (byte)(depth - 1), -beta, -alpha, -color);
             board.UndoMove(move);
 
@@ -359,8 +365,8 @@ public class MyBot : IChessBot
         System.Diagnostics.Debug.Assert(bestScore != int.MinValue); // #DEBUG
         System.Diagnostics.Debug.Assert(bestMove != Move.NullMove); // #DEBUG
 
-        Console.WriteLine("best move: " + bestMove); // #DEBUG
-        Console.WriteLine("at depth: " + depth); // #DEBUG
+        // Console.WriteLine("best move: " + bestMove); // #DEBUG
+        // Console.WriteLine("at depth: " + depth); // #DEBUG
         return bestScore;
     }
 
