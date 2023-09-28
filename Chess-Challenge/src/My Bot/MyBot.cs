@@ -82,7 +82,7 @@ public class MyBot : IChessBot
         //         bestMove = move;
         //     }
         // }
-
+        // Console.WriteLine(board.CreateDiagram());    // #DEBUG
         bestScore = Negamax(board, depth, int.MinValue + 30, int.MaxValue - 30, color);
 
         // Iterative Deepening
@@ -91,12 +91,12 @@ public class MyBot : IChessBot
         // {
         //     // set a break if time runs out, based on timer
         //     // if (timer.MillisecondsElapsedThisTurn > 300 | bestScore > int.MaxValue - 30)
-        //     if (timer.MillisecondsElapsedThisTurn > 300)
-        //     {
-        //         Console.WriteLine($"Time ran out at depth: {(byte)(i-1)}"); // #DEBUG
-        //         depth = (byte)(i-1);
-        //         break;
-        //     }
+        //     // if (timer.MillisecondsElapsedThisTurn > 300)
+        //     // {
+        //     //     Console.WriteLine($"Time ran out at depth: {(byte)(i-1)}"); // #DEBUG
+        //     //     depth = (byte)(i-1);
+        //     //     break;
+        //     // }
         //     bestScore = Negamax(board, i, int.MinValue + 30, int.MaxValue - 30, color);
         // }
 
@@ -147,7 +147,7 @@ public class MyBot : IChessBot
     } // #DEBUG
 
 
-    Move[] SortMoves(Board board, Move[] moves)
+    Move[] SortMoves(Board board, Move[] moves, byte depth)
     {
         Dictionary<Move, int> moveScores = new();
         // t-table first, then checkmate, then checks, then captures
@@ -162,17 +162,19 @@ public class MyBot : IChessBot
             board.MakeMove(move);
             // highest priority for eval entries
             // perhaps better to only priority the PV move?
-            // bool found = transpositionTable.TryGetValue(board.ZobristKey, out var parent);
             // movescore = found ? parent.score : 0;
 
-            if (found && parent.bestMove == move)
+            if (found && parent.bestMove == move && parent.entryType == TTEntryType.ExactValue)
             {
                 // this should not be possible without iterative deepening, right? it does happen though
-                Console.WriteLine($"found move in table. move: {move}");
-                Console.WriteLine(board.CreateDiagram());
+                // it happens when we find a shorter path to the same board state. exploring the best move in that case seems fine.
+                // Console.WriteLine($"found move in table. {move}");
+                // Console.WriteLine($"table entry depth: {parent.depth - 1}");
+                // Console.WriteLine($"depth after move: {depth - 1}");
+                // Console.WriteLine(board.CreateDiagram());
                 movescore = 1000006;
 
-                Environment.Exit(0);
+                // Environment.Exit(0);
             }
             // this time we are searching for the child node, not the parent
             // else if (transpositionTable.TryGetValue(board.ZobristKey, out var entry))
@@ -266,7 +268,7 @@ public class MyBot : IChessBot
         if (transpositionTable.TryGetValue(zobristKey, out var entry) && entry.depth >= depth)
         {
             TABLE_HITS++; // #DEBUG
-            // Console.WriteLine($"SAME SEARCH DEPTH TRANSPOSITION TABLE HIT");
+            // Console.WriteLine($"SAME SEARCH DEPTH TRANSPOSITION TABLE HIT"); // #DEBUG
             if (entry.entryType == TTEntryType.ExactValue)
                 return entry.score;
             if (entry.entryType == TTEntryType.LowerBound)
@@ -316,13 +318,14 @@ public class MyBot : IChessBot
         int bestScore = int.MinValue;
         Move bestMove = Move.NullMove;
         Move[] moves = board.GetLegalMoves();
-        moves = SortMoves(board, moves);
+        // Console.WriteLine($"current depth: {depth}"); // #DEBUG
+        moves = SortMoves(board, moves, depth);
 
         foreach (Move move in moves)
         {
             // Console.WriteLine(move); // #DEBUG
             board.MakeMove(move);
-            Console.WriteLine("MOVE: " + move + " DEPTH: " + depth); // #DEBUG
+            // Console.WriteLine("MOVE: " + move + " DEPTH: " + depth); // #DEBUG
             int score = -Negamax(board, (byte)(depth - 1), -beta, -alpha, -color);
             board.UndoMove(move);
 
