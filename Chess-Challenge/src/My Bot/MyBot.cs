@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using System.Collections.Generic;
 using ChessChallenge.API;
@@ -82,7 +82,7 @@ public class MyBot : IChessBot
         //         bestMove = move;
         //     }
         // }
-        // Console.WriteLine(board.CreateDiagram());    // #DEBUG
+
         bestScore = Negamax(board, depth, int.MinValue + 30, int.MaxValue - 30, color);
 
         // Iterative Deepening
