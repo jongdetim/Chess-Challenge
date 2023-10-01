@@ -4,13 +4,12 @@ using System.Collections.Generic;
 using ChessChallenge.API;
 
 // TODO:
-// _________________________________________________________________
 // track metrics (time, nodes, etc.)
-// test if fixed:
-//  a-b pruning interaction with transposition table
-// why does move sorting not speed up search?
+// a-b pruning interaction with transposition table
 // early stopping (iterative deepening + clock)
 
+// _________________________________________________________________
+// null move pruning
 // quiescence search
 // threat move sorting
 // better pawn evaluation
@@ -30,8 +29,8 @@ enum TTEntryType
 
 public class MyBot : IChessBot
 {
-    int NODES_VISITED; // #DEBUG
-    int TABLE_HITS; // #DEBUG
+    // int NODES_VISITED; // #DEBUG
+    // int TABLE_HITS; // #DEBUG
 
     Dictionary<ulong, (int score, TTEntryType entryType, byte depth, Move bestMove)> transpositionTable = new();
     static int[] pieceValues = {100, 320, 330, 500, 900, 20000};
@@ -51,11 +50,11 @@ public class MyBot : IChessBot
     
     public Move Think(Board board, Timer timer)
     {
-        NODES_VISITED = 0; // #DEBUG
-        TABLE_HITS = 0; // #DEBUG
+        // NODES_VISITED = 0; // #DEBUG
+        // TABLE_HITS = 0; // #DEBUG
         byte depth = 6;
         int color = board.IsWhiteToMove ? 1 : -1;
-        int bestScore = 12345678; // #DEBUG
+        int bestScore = 12345678;
 
         // Console.WriteLine($"TEST pawn: {GetPositionScore(0, 35)}. (should be: 25)\n"); // #DEBUG
         // Console.WriteLine($"TEST king: {GetPositionScore(5, 63)}. (should be: -30)\n"); // #DEBUG
@@ -83,68 +82,68 @@ public class MyBot : IChessBot
         //     }
         // }
         // Console.WriteLine(board.CreateDiagram());    // #DEBUG
-        bestScore = Negamax(board, depth, int.MinValue + 30, int.MaxValue - 30, color);
+        // bestScore = Negamax(board, depth, int.MinValue + 30, int.MaxValue - 30, color);
 
         // Iterative Deepening
 
-        // for (byte i = 1; i <= depth; i++)
-        // {
-        //     // set a break if time runs out, based on timer
-        //     // if (timer.MillisecondsElapsedThisTurn > 300 | bestScore > int.MaxValue - 30)
-        //     // if (timer.MillisecondsElapsedThisTurn > 300)
-        //     // {
-        //     //     Console.WriteLine($"Time ran out at depth: {(byte)(i-1)}"); // #DEBUG
-        //     //     depth = (byte)(i-1);
-        //     //     break;
-        //     // }
-        //     bestScore = Negamax(board, i, int.MinValue + 30, int.MaxValue - 30, color);
-        // }
+        for (byte i = 1; i <= depth; i++)
+        {
+            // set a break if time runs out, based on timer
+            if (timer.MillisecondsElapsedThisTurn > 300)
+            {
+                // Console.WriteLine($"Time ran out at depth: {(byte)(i-1)}"); // #DEBUG
+                // depth = (byte)(i-1);
+                break;
+            }
+            bestScore = Negamax(board, i, int.MinValue + 30, int.MaxValue - 30, color);
+            // Console.WriteLine("done one search");
+        }
 
 
 
-        Move[] pv = GetPrincipalVariation(board, depth); // #DEBUG
-        Console.WriteLine($"Best score: {bestScore}\n Best move: {pv[0]}"); // #DEBUG
-        Console.WriteLine($"principal variation:"); // #DEBUG
-        foreach (Move move in pv) // #DEBUG
-            Console.WriteLine(move); // #DEBUG
-        Console.WriteLine($"Nodes visited: {NODES_VISITED}"); // #DEBUG
-        Console.WriteLine($"Table hits: {TABLE_HITS}"); // #DEBUG
-        Console.WriteLine($"Time elapsed: {timer.MillisecondsElapsedThisTurn} ms"); // #DEBUG
-        Console.WriteLine($"Nodes per second: {NODES_VISITED / (timer.MillisecondsElapsedThisTurn / 1000.0)}"); // #DEBUG
-        return pv[0];
+        // Move[] pv = GetPrincipalVariation(board, depth);
+        // Console.WriteLine($"Best score: {bestScore}\n Best move: {pv[0]}"); // #DEBUG
+        // Console.WriteLine($"principal variation:"); // #DEBUG
+        // foreach (Move move in pv) // #DEBUG
+        //     Console.WriteLine(move); // #DEBUG
+        // Console.WriteLine($"Nodes visited: {NODES_VISITED}"); // #DEBUG
+        // Console.WriteLine($"Table hits: {TABLE_HITS}"); // #DEBUG
+        // Console.WriteLine($"Time elapsed: {timer.MillisecondsElapsedThisTurn} ms"); // #DEBUG
+        // Console.WriteLine($"Nodes per second: {NODES_VISITED / (timer.MillisecondsElapsedThisTurn / 1000.0)}"); // #DEBUG
+        return transpositionTable[board.ZobristKey].bestMove;
     }
 
-    Move[] GetPrincipalVariation(Board board, int depth) // #DEBUG
-    { // #DEBUG
-        Move[] principalVariation = new Move[depth]; // #DEBUG
-        int validMovesCount = 0; // #DEBUG
+    // Move[] GetPrincipalVariation(Board board, int depth)
+    // {
+    //     Move[] principalVariation = new Move[depth];
+    //     int validMovesCount = 0;
 
-        for (int currentDepth = 0; currentDepth < depth; currentDepth++) // #DEBUG
-        { // #DEBUG
-            ulong zobristKey = board.ZobristKey; // #DEBUG
+    //     for (int currentDepth = 0; currentDepth < depth; currentDepth++)
+    //     {
+    //         ulong zobristKey = board.ZobristKey;
 
-            // can shorten this in unsafe way by using [indexing] instead of TryGetValue
-            // if (transpositionTable.TryGetValue(zobristKey, out var test))
-            //     Console.WriteLine("found position in table");
-            if (transpositionTable.TryGetValue(zobristKey, out var entry) && entry.bestMove != Move.NullMove) // #DEBUG
-            { // #DEBUG
-                principalVariation[currentDepth] = entry.bestMove; // #DEBUG
-                board.MakeMove(entry.bestMove); // #DEBUG
-                validMovesCount++; // #DEBUG
-            } // #DEBUG
-            else // #DEBUG
-                break; // Transposition table entry not found, or best move is null // #DEBUG
-        } // #DEBUG
+    //         // can shorten this in unsafe way by using [indexing] instead of TryGetValue
+    //         // if (transpositionTable.TryGetValue(zobristKey, out var test))
+    //         //     Console.WriteLine("found position in table");
+    //         if (transpositionTable.TryGetValue(zobristKey, out var entry) && entry.bestMove != Move.NullMove)
+    //         {
+    //             principalVariation[currentDepth] = entry.bestMove;
+    //             board.MakeMove(entry.bestMove);
+    //             validMovesCount++;
+    //         }
+    //         else
+    //             break; // Transposition table entry not found, or best move is null
+    //     }
 
-        // Undo any moves made during the backtracking // #DEBUG
-        for (int i = validMovesCount - 1; i >= 0; i--) // #DEBUG
-        { // #DEBUG
-            board.UndoMove(principalVariation[i]); // #DEBUG
-        } // #DEBUG
+    //     // Undo any moves made during the backtracking
+    //     for (int i = validMovesCount - 1; i >= 0; i--)
+    //     {
+    //         board.UndoMove(principalVariation[i]);
+    //     }
 
-        // Console.WriteLine("pv moves found in table " + validMovesCount);
-        return principalVariation; // #DEBUG
-    } // #DEBUG
+    //     // Console.WriteLine("pv moves found in table " + validMovesCount);
+    //     return principalVariation;
+    // }
 
 
     Move[] SortMoves(Board board, Move[] moves, byte depth)
@@ -161,30 +160,18 @@ public class MyBot : IChessBot
             bool is_defended = board.SquareIsAttackedByOpponent(move.TargetSquare);
             board.MakeMove(move);
             // highest priority for eval entries
-            // perhaps better to only priority the PV move?
+            // perhaps better to only prioritize the PV move?
             // movescore = found ? parent.score : 0;
 
             if (found && parent.bestMove == move && parent.entryType == TTEntryType.ExactValue)
             {
                 // this should not be possible without iterative deepening, right? it does happen though
                 // it happens when we find a shorter path to the same board state. exploring the best move in that case seems fine.
-                // Console.WriteLine($"found move in table. {move}");
-                // Console.WriteLine($"table entry depth: {parent.depth - 1}");
-                // Console.WriteLine($"depth after move: {depth - 1}");
-                // Console.WriteLine(board.CreateDiagram());
                 movescore = 1000006;
-
-                // Environment.Exit(0);
             }
             // this time we are searching for the child node, not the parent
             else if (transpositionTable.TryGetValue(board.ZobristKey, out var child) && child.entryType == TTEntryType.ExactValue)
                 movescore = -child.score;
-
-            // else if (found && entry.entryType == TTEntryType.ExactValue)
-            // else if (found)
-            //     movescore = entry.score;
-            // else // not found
-
             else
             {
                 if (board.IsInCheckmate())
@@ -204,7 +191,6 @@ public class MyBot : IChessBot
                 // score for the start square from the target square
 
 
-                // these might be overkill for sorting!!!
                 // perspective for these are flipped, since we already made the move
                 else
                 {
@@ -213,8 +199,8 @@ public class MyBot : IChessBot
                         GetPositionScore((int)move.MovePieceType - 1, !board.IsWhiteToMove ? move.StartSquare.Index : 63 - move.StartSquare.Index);
                 // add mobility score
                 // MOBILITY SCORE VALUES SHOULD NOT BE MULTIPLIED BY MOVE TYPE, BUT A DIFFERENT VALUE TABLE
-                    // movescore += (int)move.MovePieceType * (BitboardHelper.GetNumberOfSetBits(BitboardHelper.GetPieceAttacks(move.MovePieceType, move.TargetSquare, board, !board.IsWhiteToMove)) - 
-                    //     BitboardHelper.GetNumberOfSetBits(BitboardHelper.GetPieceAttacks(move.MovePieceType, move.StartSquare, board, !board.IsWhiteToMove)));
+                    movescore += (int)move.MovePieceType * (BitboardHelper.GetNumberOfSetBits(BitboardHelper.GetPieceAttacks(move.MovePieceType, move.TargetSquare, board, !board.IsWhiteToMove)) - 
+                        BitboardHelper.GetNumberOfSetBits(BitboardHelper.GetPieceAttacks(move.MovePieceType, move.StartSquare, board, !board.IsWhiteToMove)));
 
                 }
             
@@ -261,11 +247,11 @@ public class MyBot : IChessBot
         int alpha_orig = alpha;
         ulong zobristKey = board.ZobristKey;
 
-        NODES_VISITED++; // #DEBUG
+        // NODES_VISITED++; // #DEBUG
         // SAME SEARCH DEPTH TRANSPOSITION TABLE HIT
         if (transpositionTable.TryGetValue(zobristKey, out var entry) && entry.depth >= depth)
         {
-            TABLE_HITS++; // #DEBUG
+            // TABLE_HITS++; // #DEBUG
             // Console.WriteLine($"SAME SEARCH DEPTH TRANSPOSITION TABLE HIT"); // #DEBUG
             if (entry.entryType == TTEntryType.ExactValue)
                 return entry.score;
@@ -282,7 +268,7 @@ public class MyBot : IChessBot
             // Console.WriteLine($"LEAF NODE. at depth:" + depth); // #DEBUG
             // Console.WriteLine($"LEAF NODE. is draw:" + board.IsDraw()); // #DEBUG
             // if (board.IsDraw()) // #DEBUG
-            //     Console.WriteLine(board.CreateDiagram()); // #DEBUG
+                // Console.WriteLine(board.CreateDiagram()); // #DEBUG
             // should we first check if board is in t-table?
             int score = EvaluateBoard(board, color, depth) * color;
             TTEntryType entryType = TTEntryType.ExactValue;
@@ -295,23 +281,6 @@ public class MyBot : IChessBot
             transpositionTable[zobristKey] = (score, entryType, depth, Move.NullMove);
             return score;
         }
-
-        // // SAME SEARCH DEPTH TRANSPOSITION TABLE HIT
-        // if (transpositionTable.TryGetValue(zobristKey, out var entry) && entry.depth >= depth)
-        // {
-        //     if (entry.entryType == TTEntryType.ExactValue || entry.entryType == TTEntryType.LowerBound)
-        //     {
-        //         alpha = Math.Max(alpha, entry.score);
-        //         if (alpha >= beta)
-        //             return entry.score;
-        //     }
-        //     else if (entry.entryType == TTEntryType.UpperBound)
-        //     {
-        //         beta = Math.Min(beta, entry.score);
-        //         if (alpha >= beta)
-        //             return entry.score;
-        //     }
-        // }
 
         int bestScore = int.MinValue;
         Move bestMove = Move.NullMove;
@@ -342,17 +311,6 @@ public class MyBot : IChessBot
                 // Console.WriteLine($"beta cutoff: remaining moves pruned. best score: {bestScore}");
                 break;
             }
-
-    
-            // if (alpha >= beta)
-            // {
-            //     // Beta cutoff (remaining moves get pruned)
-            //     TTEntryType entryType = TTEntryType.LowerBound;
-            //     if (bestScore <= alpha)
-            //         entryType = TTEntryType.UpperBound;
-            //     transpositionTable[zobristKey] = (bestScore, entryType, depth, Move.NullMove);
-            //     break;
-            // }
         }
 
         TTEntryType finalEntryType = TTEntryType.ExactValue;
@@ -363,43 +321,13 @@ public class MyBot : IChessBot
         
         transpositionTable[zobristKey] = (bestScore, finalEntryType, depth, bestMove);
 
-        System.Diagnostics.Debug.Assert(bestScore != int.MinValue); // #DEBUG
-        System.Diagnostics.Debug.Assert(bestMove != Move.NullMove); // #DEBUG
+        // System.Diagnostics.Debug.Assert(bestScore != int.MinValue); // #DEBUG
+        // System.Diagnostics.Debug.Assert(bestMove != Move.NullMove); // #DEBUG
 
         // Console.WriteLine("best move: " + bestMove); // #DEBUG
         // Console.WriteLine("at depth: " + depth); // #DEBUG
         return bestScore;
     }
-
-
-    // int Negamax(Board board, int depth, int alpha, int beta, int color)
-    // {
-    //     if (depth == 0 || board.IsInCheckmate() || board.IsDraw())
-    //     {
-    //         int score = EvaluateBoard(board, color) * color;
-    //         // this means that the stored move has a score from the perspective of the player who is about to move
-    //         // should we instead always store the score from the perspective of white?
-    //         transpositionTable[board.ZobristKey] = score;
-    //         return score;
-    //     }
-
-    //     int bestScore = int.MinValue;
-    //     Move[] moves = board.GetLegalMoves();
-    //     moves = OrderMoveByMVVLVA(moves);
-    //     foreach (Move move in moves)
-    //     {
-    //         board.MakeMove(move);
-    //         int score = -Negamax(board, depth - 1, -beta, -alpha, -color);
-    //         board.UndoMove(move);
-
-    //         bestScore = Math.Max(bestScore, score);
-    //         alpha = Math.Max(alpha, score);
-    //         if (alpha >= beta)
-    //             break; // Beta cutoff
-    //     }
-    //     // Console.WriteLine($"Depth: {depth + 1}, Eval: {bestScore}");
-    //     return bestScore;
-    // }
 
     // always from White's perspective
     int EvaluateBoard(Board board, int color, byte depth)
@@ -428,7 +356,7 @@ public class MyBot : IChessBot
                 score += sign * (int)piece.PieceType * BitboardHelper.GetNumberOfSetBits(BitboardHelper.GetPieceAttacks(piece.PieceType, piece.Square, board, i < 6));
             }
         }
-        // King safety evaluation.
+        // Simple king safety evaluation.
         if (board.IsInCheck())
             score -= 50 * color;
 
