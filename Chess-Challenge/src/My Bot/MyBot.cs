@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using System.Collections.Generic;
 using ChessChallenge.API;
@@ -82,7 +82,7 @@ public class MyBot : IChessBot
         //         bestMove = move;
         //     }
         // }
-
+        // Console.WriteLine(board.CreateDiagram());    // #DEBUG
         bestScore = Negamax(board, depth, int.MinValue + 30, int.MaxValue - 30, color);
 
         // Iterative Deepening
@@ -177,8 +177,8 @@ public class MyBot : IChessBot
                 // Environment.Exit(0);
             }
             // this time we are searching for the child node, not the parent
-            // else if (transpositionTable.TryGetValue(board.ZobristKey, out var entry))
-            //     movescore = -entry.score;
+            else if (transpositionTable.TryGetValue(board.ZobristKey, out var child) && child.entryType == TTEntryType.ExactValue)
+                movescore = -child.score;
 
             // else if (found && entry.entryType == TTEntryType.ExactValue)
             // else if (found)
@@ -194,9 +194,7 @@ public class MyBot : IChessBot
                 else if (move.IsCapture) // assumed to be independent of current board state.
                     // order move by MVVLVA value
                     // this might not work for promotions!!
-                    movescore = pieceValues[(int)move.CapturePieceType - 1] - pieceValues[(int)move.MovePieceType - 1] + 1000;
-                    if (is_defended)
-                        movescore -= 800;
+                    movescore = 1000 + pieceValues[(int)move.CapturePieceType - 1] - pieceValues[(int)move.MovePieceType - 1];
                 else if (is_defended)
                     movescore = -50000;
                 // else // look at lesser piece moves first
